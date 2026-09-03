@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    container_name: havoc-guide
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PATCH_VERSION=16.16
+      - DRAGON_VER=16.17.1
+    # 若要把网页目录/用户数据挂出来，取消下面注释（改成你的主机目录）
+    # volumes:
+    #   - ./processed:/app/processed

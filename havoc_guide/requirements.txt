@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+pypinyin
+python-multipart
+bcrypt

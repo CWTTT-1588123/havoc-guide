@@ -1,0 +1,18 @@
+[Unit]
+Description=Havoc Guide (海克斯大乱斗攻略站)
+After=network.target
+
+[Service]
+Type=simple
+# 改成你的实际用户/路径
+User=www-data
+WorkingDirectory=/srv/havoc_guide
+Environment=PATCH_VERSION=16.16
+Environment=DRAGON_VER=16.17.1
+# 用虚拟环境里的 uvicorn（或系统 python3 -m uvicorn）
+ExecStart=/usr/bin/python3 -m uvicorn webapp:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
