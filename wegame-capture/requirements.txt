@@ -1,0 +1,4 @@
+# 爬虫专用依赖（只装抓包/爬数据用）
+# 与网站(havoc_guide)依赖分离开，各自独立 venv
+curl_cffi
+mitmproxy

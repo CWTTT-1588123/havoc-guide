@@ -38,11 +38,10 @@
 [FastAPI webapp.py] → [前端 static/index.html] → 网站(http://127.0.0.1:8000)
 ```
 
-关键库（装在虚拟环境 `wegame-capture\.venv`）：
-- **curl_cffi**：伪装 Chrome TLS/HTTP2 指纹，直连 WeGame 接口（核心）
-- **fastapi + uvicorn**：网站后端
-- **league-tools**：可解析游戏 WAD（备用，未实际用于符文名）
-- **requests/标准库**：DDragon 元数据
+**依赖已分离（各自独立 venv）**：
+- **爬虫 venv** `wegame-capture\.venv`：`curl_cffi`（伪装 Chrome TLS/HTTP2 指纹，直连 WeGame 接口，核心）+ `mitmproxy`（抓包）。清单见 `wegame-capture\requirements.txt`。
+- **网站 venv** `havoc_guide\.venv`：`fastapi + uvicorn`（后端）、`pypinyin`、`python-multipart`、`bcrypt`。清单见 `havoc_guide\requirements.txt`。
+- （备用）**league-tools**：可解析游戏 WAD（未实际用于符文名）；**requests/标准库**：DDragon 元数据。
 
 ---
 
@@ -63,7 +62,7 @@
 | 管理员 | **admin@qq.com / admin123**（主管理员 owner；首个注册的账户） |
 | `/api/version` | 返回 `16.16` |
 | 主数据文件 | `havoc_guide\processed\stats.json`（16.16） |
-| **技术现状/债** | 密码 hash=**SHA-256**（应改 bcrypt/argon2）；验证码**直接返回前端**(demo，未真正走验证码安全流)；**无测试、无类型标注、无前端框架**；**无大模型/RAG/深度学习** |
+| **技术现状/债** | 密码 hash=**bcrypt**（旧SHA-256已自动升级）；验证码**安全流**（服务端生成/只发邮箱/不回传/60s限频/用后即删）；**有 pytest、有类型标注(pydantic+mypy)**；**前端框架尚为原生HTML/JS（Vue 3 组件化计划中）**；**无大模型/RAG/深度学习** |
 
 **线上运行状态**：
 - **正式站**：阿里云 ECS 上 `systemd havoc-guide.service` 常驻（单进程，`--workers 1`），无需后台任务。
@@ -73,7 +72,8 @@
 - **上线部署**：纯Python + systemd 部署到阿里云 ECS，公网可访问（关键坑：`--host 0.0.0.0`、`--workers 1`）。
 - **登录/认证系统**：真邮件验证码(163 SMTP)/注册(仅邮箱)/忘记密码/绑定手机号登录/角色体系(主管理员/管理员/普通)+管理后台。
 - **技术栈正规化（安全+可靠性）✅**：① 密码 **bcrypt**（旧SHA-256首登自动升级）；② **验证码安全流**（服务端生成/只发邮箱/不回传前端/60s限频/用后即删）；③ **pytest**（27个测试：统计6+接口13+模型8）；④ **pydantic 请求模型 + 类型注解 + mypy**。
-- **git/GitHub 备份**：仓库已建（Private，GitHub: CWTTT-1588123/havoc-guide），`captured/` 抓包凭证等敏感文件已正确 gitignore（踩坑：gitignore 注释不可放在模式同行）。
+- **git/GitHub 备份**：仓库已建（Private，GitHub: CWTTT-1588123/havoc-guide），`captured/` 抓包凭证等敏感文件已正确 gitignore（踩坑：gitignore 注释不可放在模式同行）。→ **已首次 push main 成功**（踩坑：Windows schannel 报 SEC_E_NO_CREDENTIALS → `git config http.sslBackend openssl`）。
+- **环境分离**：爬虫与网站**各建独立 venv**（爬虫 `wegame-capture\.venv` 只装 curl_cffi+mitmproxy；网站 `havoc_guide\.venv` 装 fastapi 全家桶），并清理了爬虫 venv 里混装的网站包。
 - **前端**：登录弹窗白底加宽、验证码注册(含确认密码)、密码框睁/闭眼SVG、dark模式对比度、头像菜单不透明、自定义favicon。
 - **待做**：前端 **Vue 3 组件化**（#5，可选）；公安备案提交；SEO。
 
@@ -95,7 +95,7 @@
 | `crawler.py` | 单历史爬虫（备用/早期） |
 | `addon.py` | mitmproxy插件（捕获 WeGame 接口） |
 | `run_mitmweb.py` | 启动 mitmweb（抓包用） |
-| `.venv\` | 虚拟环境（curl_cffi/fastapi/uvicorn/mitmproxy/league-tools） |
+| `.venv\` | **爬虫虚拟环境**（curl_cffi/mitmproxy；网站另有 `havoc_guide\.venv` 装 fastapi 全家桶） |
 | `data\` | **爬到的对局**（`detail_*.json`，~9971个） |
 | `captured\` | 抓包原始文件 + **凭证来源**（`REQ_GetBattleDetail_*.json`） |
 | `players_seen.json` | 已见过的玩家 openid |
@@ -123,7 +123,7 @@
 
 ### 看网站
 ```
-& "E:\Deepseek Harness\wegame-capture\.venv\Scripts\python.exe" -m uvicorn webapp:app --host 127.0.0.1 --port 8000
+& "E:\Deepseek Harness\havoc_guide\.venv\Scripts\python.exe" -m uvicorn webapp:app --host 127.0.0.1 --port 8000
 # 在目录 E:\Deepseek Harness\havoc_guide 下运行；浏览器开 http://127.0.0.1:8000
 ```
 
@@ -136,8 +136,9 @@ $env:MAX_GAMES="30000"; $env:MAX_PLAYERS="50000"; $env:MAX_PAGES_PER_PLAYER="100
 
 ### 刷新网站数据（爬取变多后）
 ```
-& "...\.venv\Scripts\python.exe" "E:\Deepseek Harness\havoc_guide\extract.py"
-& "...\.venv\Scripts\python.exe" "E:\Deepseek Harness\havoc_guide\stats.py"
+# 数据管线属于网站项目，用网站 venv
+& "E:\Deepseek Harness\havoc_guide\.venv\Scripts\python.exe" "E:\Deepseek Harness\havoc_guide\extract.py"
+& "E:\Deepseek Harness\havoc_guide\.venv\Scripts\python.exe" "E:\Deepseek Harness\havoc_guide\stats.py"
 # 然后重启 webapp 加载新的 stats.json
 ```
 
