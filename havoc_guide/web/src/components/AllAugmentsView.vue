@@ -1,18 +1,18 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { state, getJSON } from '../store'
+import { state, getJSON, goHome } from '../store'
 
 const groups = ref([])
-const open = reactive({})
+const open = reactive({ 白银: true })   // 默认展开白银
 const order = ['白银', '黄金', '棱彩']
 const total = computed(() => groups.value.reduce((n, g) => n + (g.items || []).length, 0))
 const qualityItems = computed(() => order.map(q => groups.value.find(x => x.quality === q)).filter(Boolean))
 
-function back() { state.view = 'home' }
+function back() { goHome() }
 function toggle(q) { open[q] = !open[q] }
 // 吸顶高度：固定为头部高度（现状即贴顶，上方展开也不留空）
 const STICKY_TOP = 'calc(var(--headerh, 90px))'
-function card(a) { return `<div class="augcard hasicon">${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${a.name}${a.quality ? `<span class="q ${a.quality}">${a.quality}</span>` : ''}</div><div class="sdesc">${a.desc || '（暂无描述）'}</div></div>` }
+function card(a) { return `<div class="augcard hasicon" data-name="${a.name}">${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${a.name}${a.quality ? `<span class="q ${a.quality}">${a.quality}</span>` : ''}</div><div class="sdesc">${a.desc || '（暂无描述）'}</div></div>` }
 
 onMounted(async () => { groups.value = await getJSON('/api/augments_all') })
 </script>

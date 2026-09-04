@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { state, getJSON, openLogin, toast } from '../store'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { state, getJSON, openLogin, goHome, toast } from '../store'
+import { avErr } from '../data'
 
 const cid = computed(() => state.champId)
 const d = ref(null)
@@ -10,13 +11,13 @@ const commentText = ref('')
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])) }
 
 function augChip(name, q, icon) {
-  return `<span class="aug-chip hasicon">${icon ? `<img class="aicon" src="${icon}" onerror="this.style.display='none'">` : '<span class="aicon ph"></span>'}${esc(name)}${q ? `<span class="q ${esc(q)}">${esc(q)}</span>` : ''}</span>`
+  return `<span class="aug-chip hasicon" data-name="${esc(name)}">${icon ? `<img class="aicon" src="${icon}" onerror="this.style.display='none'">` : '<span class="aicon ph"></span>'}${esc(name)}${q ? `<span class="q ${esc(q)}">${esc(q)}</span>` : ''}</span>`
 }
 function itemCard(name, icon) {
-  return `<span class="aug-chip hasicon">${icon ? `<img class="aicon" src="${icon}" onerror="this.style.display='none'">` : '<span class="aicon ph"></span>'}${esc(name)}</span>`
+  return `<span class="aug-chip hasicon" data-name="${esc(name)}">${icon ? `<img class="aicon" src="${icon}" onerror="this.style.display='none'">` : '<span class="aicon ph"></span>'}${esc(name)}</span>`
 }
 function singleRow(a) {
-  return `<div class="singlecard hasicon">${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${esc(a.name)}${a.quality ? `<span class="q ${esc(a.quality)}">${esc(a.quality)}</span>` : ''}</div><div class="swr">${(a.wr * 100).toFixed(1)}%</div><div class="snum">${a.games}场</div></div>`
+  return `<div class="singlecard hasicon" data-name="${esc(a.name)}">${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${esc(a.name)}${a.quality ? `<span class="q ${esc(a.quality)}">${esc(a.quality)}</span>` : ''}</div><div class="swr">${(a.wr * 100).toFixed(1)}%</div><div class="snum">${a.games}场</div></div>`
 }
 function comboRow(c) {
   return `<div class="itemrow"><div class="l">${(c.augment_meta || []).map(m => augChip(m.name, m.quality, m.icon)).join('')} <span class="num">${c.games}场</span></div><span class="winrate">${(c.wr * 100).toFixed(1)}%</span></div>`
@@ -30,31 +31,44 @@ function buildRow(b) {
 function counterRow(s) {
   return `<div class="itemrow"><div class="l"><span class="tag">${esc(s.tag)}</span> ${augChip(s.augment_name, s.augment_quality, s.icon)} <span class="num">${s.games}场</span></div><span class="pct">${s.lift > 0 ? '▲' : '▼'} ${Math.abs(s.lift * 100).toFixed(1)}%</span></div>`
 }
-function qualityBlocks(dd) {
-  return `<div class="aqgrid">${(dd.augments_by_quality || []).map(g => `<div class="aqcol"><div class="cq">${esc(g.quality)}</div><div class="list">${g.items.slice(0, 5).map(singleRow).join('')}</div></div>`).join('')}</div>`
+function qualityBlocks(dd, full) {
+  return `<div class="aqgrid">${(dd.augments_by_quality || []).map(g => `<div class="aqcol"><div class="cq">${esc(g.quality)}</div><div class="list">${g.items.slice(0, full ? g.items.length : 5).map(singleRow).join('')}</div></div>`).join('')}</div>`
 }
-function secHtml(title, rows, caption, limit) {
+function rowsHtml(rows, limit) {
   if (!rows || !rows.length) return ''
   const first = rows.slice(0, limit || 6)
   return `<div class="list">${first.join('')}</div>`
 }
-const rowsHtml = secHtml
 
 const sects = computed(() => {
   if (!d.value) return []
   const x = d.value
   const out = []
+  const limit = 6
   if (x.augments_by_quality && x.augments_by_quality.length) {
-    out.push({ id: 'sec-augments', title: '最优单个符文', caption: '该英雄带这个符文胜率最高（按品质分档）', html: qualityBlocks(x) })
+    out.push({ id: 'sec-augments', key: 'augments', title: '最优单个符文', caption: '该英雄带这个符文胜率最高（按品质分档）', html: qualityBlocks(x, false), hasMore: x.augments_by_quality.some(g => g.items.length > 5) })
   }
-  if (x.combos && x.combos.length) out.push({ id: 'sec-combos', title: '最优符文组合', caption: '这几个符文一起带的胜率', html: rowsHtml(x.combos.map(comboRow)) })
-  if (x.synergy && x.synergy.length) out.push({ id: 'sec-synergy', title: '搭配增益', caption: '这两个符文一起带，胜率比该英雄平均▲高/▼低', html: rowsHtml(x.synergy.map(synergyRow)) })
-  if (x.builds && x.builds.length) out.push({ id: 'sec-builds', title: '核心出装', caption: '该英雄这流派常见的核心三件套', html: rowsHtml(x.builds.map(buildRow)) })
-  if (x.counters && x.counters.length) out.push({ id: 'sec-counters', title: '克制推荐', caption: '敌方是这类阵容时，选这个符文克制（▲ 克制加成 / ▼ 反被压制）', html: rowsHtml(x.counters.map(counterRow)) })
+  if (x.combos && x.combos.length) {
+    const rows = x.combos.map(comboRow)
+    out.push({ id: 'sec-combos', key: 'combos', title: '最优符文组合', caption: '这几个符文一起带的胜率', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
+  }
+  if (x.synergy && x.synergy.length) {
+    const rows = x.synergy.map(synergyRow)
+    out.push({ id: 'sec-synergy', key: 'synergy', title: '搭配增益', caption: '这两个符文一起带，胜率比该英雄平均▲高/▼低', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
+  }
+  if (x.builds && x.builds.length) {
+    const rows = x.builds.map(buildRow)
+    out.push({ id: 'sec-builds', key: 'builds', title: '核心出装', caption: '该英雄这流派常见的核心三件套', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
+  }
+  if (x.counters && x.counters.length) {
+    const rows = x.counters.map(counterRow)
+    out.push({ id: 'sec-counters', key: 'counters', title: '克制推荐', caption: '敌方是这类阵容时，选这个符文克制（▲ 克制加成 / ▼ 反被压制）', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
+  }
   return out
 })
+function goMore(k) { state.section = { cid: state.champId, key: k }; state.view = 'section' }
 
-function back() { state.view = 'home' }
+function back() { goHome() }
 function jumpTo(id) { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
 
 async function load() {
@@ -88,7 +102,7 @@ onMounted(load)
       <button class="btn" @click="back">返回</button>
     </div>
     <div class="dhead">
-      <img class="dimg" :src="d.image" alt="">
+      <img class="dimg" :src="d.image" @error="avErr($event, d.name)" alt="">
       <div>
         <h2>{{ d.name }}</h2>
         <div class="sub">整体胜率 <span class="bigwr">{{ (d.overall.wr * 100).toFixed(1) }}%</span> · {{ d.overall.games }} 场</div>
@@ -102,6 +116,7 @@ onMounted(load)
       <h3 class="sechead"><span>{{ s.title }}</span></h3>
       <div class="cap">{{ s.caption }}</div>
       <div v-html="s.html"></div>
+      <div v-if="s.hasMore" class="secmore"><button class="arrow" @click="goMore(s.key)">更多 ›</button></div>
       <div class="secend"></div>
     </div>
 

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import {
-  state, loadPrefs, savePrefs, applyPrefs, apiAuth, logout, toast,
+  state, loadPrefs, savePrefs, applyPrefs, apiAuth, logout, goHome, toast,
   PET_IMGS, BG_PRESETS, DARK_PRESETS, setBg, setBgImg, clearBg, saveTheme, updateAuthUser,
 } from '../store'
 
@@ -29,7 +29,7 @@ const petSel = ref((prefs.pets || []).slice())
 // 主题
 const themeSel = ref(prefs.theme || 'light')
 
-function back() { state.view = 'home' }
+function back() { goHome() }
 
 function pickAvatar(e) {
   const f = e.target.files[0]; if (!f) return
@@ -71,14 +71,33 @@ async function unbindPhone() {
 }
 
 function pickBg(css) { setBg(css); refreshPrefs() }
+function resetBg() { clearBg(); refreshPrefs() }
+
+// —— 自定义背景：上传 → 预览框拖动选择显示区域 → 确认 ——
+const bgPreview = ref('')      // 预览图片(dataUrl)
+const bgPos = ref('center')    // 显示区域(百分比)
 function onBgImg(e) {
   const f = e.target.files[0]; if (!f) return
   const rd = new FileReader()
-  rd.onload = () => { setBgImg(rd.result); refreshPrefs() }
+  rd.onload = () => { bgPreview.value = rd.result; bgPos.value = 'center' }
   rd.readAsDataURL(f)
   e.target.value = ''
 }
-function resetBg() { clearBg(); refreshPrefs() }
+let dragging = false, dragStart = null, dragStartPos = null
+function parsePos(p) { const m = /([\d.]+)%\s+([\d.]+)%/.exec(p); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [50, 50] }
+function startDrag(e) { dragging = true; dragStart = { x: e.clientX, y: e.clientY }; dragStartPos = bgPos.value }
+function onDrag(e) {
+  if (!dragging) return
+  const rect = e.currentTarget.getBoundingClientRect()
+  const dx = (e.clientX - dragStart.x) / rect.width * 100
+  const dy = (e.clientY - dragStart.y) / rect.height * 100
+  const [sx, sy] = parsePos(dragStartPos)
+  const cx = Math.max(0, Math.min(100, Math.round(sx + dx)))
+  const cy = Math.max(0, Math.min(100, Math.round(sy + dy)))
+  bgPos.value = cx + '% ' + cy + '%'
+}
+function endDrag() { dragging = false }
+function confirmBg() { setBgImg(bgPreview.value, bgPos.value); bgPreview.value = ''; refreshPrefs(); toast('背景已设置') }
 
 function togglePet(file) { petSel.value = petSel.value.includes(file) ? petSel.value.filter(x => x !== file) : petSel.value.concat([file]) }
 function confirmPets() { const p = loadPrefs(); p.pets = petSel.value.slice(); savePrefs(p); applyPrefs(); refreshPrefs(); toast('已锁定 Q 版形象') }
@@ -156,7 +175,7 @@ async function onLogout() { await logout() }
     <div class="pc-sec">
       <h3>自定义网页背景</h3>
       <div class="pc-bgs">
-        <div v-for="b in bgs" :key="b.name" class="pc-bg" :class="{ on: (prefs.bg || '') === b.css }"
+        <div v-for="b in bgs" :key="b.name" class="pc-bg" :class="{ on: (prefs.bg || '') === b.css, darkpre: dk }"
              :style="{ background: b.css || (dk ? '#0a0e18' : 'var(--panel2)') }" @click="pickBg(b.css)">
           <span>{{ b.name }}</span>
         </div>
@@ -165,6 +184,19 @@ async function onLogout() { await logout() }
         <label class="pc-btn" for="pcBgImg">上传图片背景</label>
         <input id="pcBgImg" type="file" accept="image/*" hidden @change="onBgImg">
         <button class="pc-btn" @click="resetBg">恢复默认</button>
+      </div>
+
+      <!-- 自定义背景预览：拖动图片选择要显示的区域 -->
+      <div v-if="bgPreview" class="bgpreview-wrap">
+        <div class="bgpreview"
+             :style="{ backgroundImage: 'url(' + bgPreview + ')', backgroundPosition: bgPos }"
+             @mousedown="startDrag" @mousemove="onDrag" @mouseup="endDrag" @mouseleave="endDrag">
+          <span class="bgprev-hint">在框内拖动图片，选择网站要显示的部分（预览）</span>
+        </div>
+        <div class="pc-okrow">
+          <button class="pc-btn ok" @click="confirmBg">确认使用此背景</button>
+          <button class="pc-btn" @click="bgPreview=''">取消</button>
+        </div>
       </div>
     </div>
 

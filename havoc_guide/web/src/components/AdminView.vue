@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { state, adminApi, toast } from '../store'
+import { state, adminApi, goHome, toast } from '../store'
 
 const users = ref([])
 const me = computed(() => state.auth && state.auth.user)
@@ -11,12 +11,12 @@ async function load() {
   if (d.ok) { users.value = d.users } else { alert(d.error || '加载失败') }
 }
 
-function back() { state.view = 'home' }
+function back() { goHome() }
 
 function roleBadge(u) {
-  if (u.owner) return '<span class="q gold">主管理员</span>'
-  if (u.is_admin) return '<span class="q gold">管理员</span>'
-  return '<span class="q silver">普通</span>'
+  if (u.owner) return '<span class="q 黄金">主管理员</span>'
+  if (u.is_admin) return '<span class="q 黄金">管理员</span>'
+  return '<span class="q 白银">普通</span>'
 }
 
 async function setRole(u, val) {

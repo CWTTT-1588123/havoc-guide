@@ -15,7 +15,7 @@ async function onLogout() { await logout() }
   <div class="avatar-menu">
     <img class="am-av" :src="avatar" alt="">
     <div class="am-name">{{ u ? u.name : '' }}</div>
-    <div class="am-badges" v-if="u && u.is_admin"><span class="am-admin">管理员</span></div>
+    <div class="am-badges"><span class="am-admin">{{ u && u.is_admin ? '管理员' : '普通用户' }}</span></div>
     <div class="am-item" @click="goProfile">个人中心 <span class="am-chev">›</span></div>
     <div class="am-item" v-if="u && u.is_admin" @click="goAdmin">管理后台 <span class="am-chev">›</span></div>
     <div class="am-item" @click="toggleTheme()">主题：{{ themeLabel }} <span class="am-chev">›</span></div>
@@ -24,7 +24,7 @@ async function onLogout() { await logout() }
 </template>
 
 <style scoped>
-.avatar-menu { position:absolute; top:100%; right:0; width:300px; background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 14px 40px rgba(0,0,0,.22); padding-bottom:8px; overflow:hidden; z-index:100000; }
+.avatar-menu { position:absolute; top:100%; right:0; width:300px; background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 14px 40px rgba(0,0,0,.22); padding-bottom:8px; overflow:hidden; z-index:100000; opacity:1; visibility:visible; transform:none; pointer-events:auto; }
 html.dark .avatar-menu { background:#1c2536; }
 .avatar-menu::before { content:''; position:absolute; top:-12px; left:0; right:0; height:12px; }
 .am-av { width:76px; height:76px; border-radius:50%; object-fit:cover; display:block; margin:20px auto 10px; box-shadow:0 0 0 3px var(--blue); }

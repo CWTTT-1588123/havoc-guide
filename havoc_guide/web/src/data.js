@@ -43,6 +43,14 @@ export const CAT_IDS = (() => {
   return c
 })()
 
+// 头像兜底：图片加载失败 → 生成"英雄名首字"占位 SVG
+export function avFallback(name) {
+  const ch = (name || '?')[0]
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="16" fill="#1d2540"/><text x="48" y="63" font-size="42" text-anchor="middle" fill="#9fb0e8" font-family="sans-serif">${ch}</text></svg>`
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg)
+}
+export function avErr(e, name) { e.target.onerror = null; e.target.src = avFallback(name) }
+
 export const CAT_META = {
   '刺客': { icon:'🗡️', color:'#a55eea', desc:'高爆发突进 · 秒杀后排' },
   '战士': { icon:'🪓', color:'#e0854a', desc:'持续作战 · 前排扛伤' },

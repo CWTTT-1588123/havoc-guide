@@ -22,6 +22,7 @@ from pypinyin import lazy_pinyin
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+import httpx
 import schemas
 
 
@@ -72,12 +73,44 @@ CHAMPS = _load("champion_names.json", {})
 AUGS = _load("augment_names.json", {})
 ITEMS = _load("item_names.json", {})
 AUG_ICONS = _load("augment_icons.json", {})  # 符文ID -> CDN图标URL
+
+# 英雄外号映射（前后端共用；由 web/src/nicknames.js 导出）
+_NICK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nicknames.json")
+try:
+    with open(_NICK_PATH, encoding="utf-8") as _f:
+        _NICK_JSON = json.load(_f)
+except Exception:
+    _NICK_JSON = {}
+NICKS = _NICK_JSON.get("NICK", {})            # 外号 -> 官方名
+NAME_NICKS = _NICK_JSON.get("NAME_NICKS", {})  # 官方名 -> [外号们]
+
+# 装备外号（昵称 -> 官方装备名），用于检索匹配
+ITEM_NICKS = {
+    "无尽": "无尽之刃", "破败": "破败王者之刃", "三相": "三相之力", "电刀": "斯塔缇克电刃",
+    "饮血": "饮血剑", "帽子": "灭世者的死亡之帽", "大帽": "灭世者的死亡之帽", "金身": "中娅沙漏", "沙漏": "中娅沙漏",
+    "复活甲": "守护天使", "冰拳": "冰脉护手", "兰盾": "兰顿之兆", "反甲": "荆棘之甲",
+    "法穿鞋": "法师之靴", "攻速鞋": "狂战士胫甲", "cd鞋": "明朗之靴", "水银鞋": "水银之靴", "布甲鞋": "忍者足具",
+    "黑切": "黑色切割者", "血手": "斯特拉克的挑战护手", "轻语": "凡性的提醒", "羊刀": "鬼索的狂暴之刃",
+    "狂徒": "狂徒铠甲", "日炎": "日炎圣盾", "振奋": "振奋盔甲", "女妖": "女妖面纱",
+    "纳什": "纳什之牙", "巫妖": "巫妖之祸", "时光杖": "时光之杖", "面具": "兰德里的折磨", "兰德里": "兰德里的折磨",
+    "冰杖": "瑞莱的冰晶节杖", "杀人书": "梅贾的窃魂卷", "推推棒": "海克斯科技火箭腰带",
+    "收集者": "收集者", "幕刃": "德拉克萨的暮刃", "死舞": "死亡之舞", "九头蛇": "贪欲九头蛇",
+    "巨九": "巨型九头蛇", "板甲": "亡者的板甲", "鸟盾": "钢铁烈阳之匣", "香炉": "炽热香炉",
+    "鬼书": "莫雷洛秘典", "深渊": "深渊面具", "冰心": "冰霜之心", "焚天": "焚天",
+}
+NAME_ITEM_NICKS = {}
+for _n, _o in ITEM_NICKS.items():
+    NAME_ITEM_NICKS.setdefault(_o, []).append(_n)
 DRAGON_VER = os.environ.get("DRAGON_VER", _dragon_version())
 PATCH_VERSION = os.environ.get("PATCH_VERSION", "16.16")  # 当前LOL补丁版本，用于网站名标注
 
 app = FastAPI(title="海克斯大乱斗 攻略站")
-# 静态资源（桌面宠物等）：把图片放进 static/ 即可经 /static/... 访问
+# 静态资源（桌面宠物/头像等）：把图片放进 static/ 即可经 /static/... 访问
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Vue 前端构建产物（web/dist/assets），经 /assets/... 访问
+_DIST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "dist")
+if os.path.isdir(os.path.join(_DIST_DIR, "assets")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_DIST_DIR, "assets")), name="assets")
 
 
 def _champ_img(cid):
@@ -90,7 +123,10 @@ def _champ_img(cid):
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    path = os.path.join(STATIC_DIR, "index.html")
+    # 优先服务 Vue 构建产物；不存在时兜底旧版 static/index.html
+    path = os.path.join(_DIST_DIR, "index.html")
+    if not os.path.exists(path):
+        path = os.path.join(STATIC_DIR, "index.html")
     with open(path, encoding="utf-8") as f:
         html = f.read().replace("{{PATCH_VER}}", PATCH_VERSION)
     icp = os.environ.get("ICP_NUMBER", "").strip()
@@ -104,6 +140,12 @@ def home():
 @app.get("/api/version", response_model=schemas.VersionOut)
 def api_version():
     return {"game_version": PATCH_VERSION}
+
+
+@app.get("/api/site")
+def api_site():
+    """站点信息：版本 + ICP 备案号（前端页脚展示）"""
+    return {"game_version": PATCH_VERSION, "icp": os.environ.get("ICP_NUMBER", "").strip()}
 
 
 @app.get("/api/champions", response_model=List[schemas.ChampOut])
@@ -211,6 +253,144 @@ async def api_comments_post(cid: str, request: Request):
                      "name": u.get("name", ""), "text": text, "ts": int(time.time())})
     _save_comments()
     return {"ok": True, "comment": {"name": u.get("name", "") or "玩家", "text": text, "ts": COMMENTS[-1]["ts"]}}
+
+
+# ==================== AI 聊天（DeepSeek 智能体） ====================
+
+CHAT_SYSTEM = (
+    "你是「海克斯大乱斗攻略站」的专属 AI 助手「小海克斯」。"
+    "你可以回答与英雄联盟大乱斗（海克斯大乱斗/ARAM）、本站英雄/符文/装备/胜率相关的问题，也可以日常闲聊。"
+    "玩家常用英雄/装备外号提问（如'刀妹'=刀锋舞者、'无尽'=无尽之刃），数据里会给出对照，请自然识别。"
+    "回答数据类问题时，【只能依据下面提供的真实数据】；数据里没有的内容不要编造，如实说“本站数据里没有”。"
+    "胜率数据是小数值（0.5 表示 50%），展示时请转成百分比。"
+    "回答用中文，尽量简洁、分点，不要超过 300 字。"
+)
+CHAT_TONE_PRO = "当前说话风格：专业、沉稳、简洁，像资深分析师，用数据说话，不使用卖萌语气词。"
+CHAT_TONE_CUTE = "当前说话风格：活泼、可爱、俏皮，多用语气词和颜文字（如～、呀、✨、٩(ˊᗜˋ*)و），热情鼓励玩家。"
+
+
+def _aug_name(aid):
+    m = AUGS.get(str(aid), {})
+    return m.get("name", "符文" + str(aid))
+
+
+def _build_chat_context(user_text):
+    """从 stats.json 检索与用户问题相关的真实数据，拼成上下文。"""
+    parts = []
+    champs = STATS.get("champions", []) or []
+    # 总榜前10（始终给，便于推荐类问题）
+    top = sorted(champs, key=lambda c: -(c.get("wilson") or 0))[:10]
+    parts.append("【全英雄胜率榜前10】" + "；".join(
+        "%s 胜率%.1f%%(%d场)" % (c["name"], (c.get("wr") or 0) * 100, c.get("games") or 0) for c in top))
+    # 命中英雄（支持外号）→ 给该英雄详情
+    detail = STATS.get("champion_detail", {}) or {}
+    hit_id, hit_name = None, None
+    for c in champs:
+        name = c.get("name")
+        if not name:
+            continue
+        nicks = NAME_NICKS.get(name, [])
+        if name in user_text or any(n and n in user_text for n in nicks):
+            hit_id, hit_name = c["id"], name
+            break
+    if hit_id:
+        d = detail.get(hit_id, {})
+        ov = d.get("overall", {}) or {}
+        alias = ("（外号：%s）" % "、".join(NAME_NICKS.get(hit_name, [])[:8])) if NAME_NICKS.get(hit_name) else ""
+        parts.append("【%s 详情%s】整体胜率 %.1f%%（%d场）" % (hit_name, alias, (ov.get("wr") or 0) * 100, ov.get("games") or 0))
+        augs = (d.get("augments") or [])[:5]
+        if augs:
+            parts.append("最优单个符文：" + "；".join(
+                "%s(品质%s) 胜率%.1f%%" % (_aug_name(a.get("id")), AUGS.get(str(a.get("id")), {}).get("quality", ""), (a.get("wr") or 0) * 100) for a in augs))
+        combos = (d.get("combos") or [])[:3]
+        if combos:
+            parts.append("最优符文组合：" + "；".join(
+                "+".join(_aug_name(x) for x in (c.get("augments") or [])) + " 胜率%.1f%%" % ((c.get("wr") or 0) * 100) for c in combos))
+        builds = (d.get("builds") or [])[:3]
+        if builds:
+            parts.append("核心出装：" + "；".join(
+                "、".join(b.get("item_names") or []) + " 胜率%.1f%%" % ((b.get("wr") or 0) * 100) for b in builds))
+        counters = (d.get("counters") or [])[:5]
+        if counters:
+            parts.append("克制推荐：" + "；".join(
+                "对%s阵容 用%s 增益%+.1f%%" % (c.get("tag", ""), _aug_name(c.get("augment")), ((c.get("lift") or 0) * 100)) for c in counters))
+    # 命中符文名 → 给该符文品质与描述
+    rune_hits = []
+    for aid, m in AUGS.items():
+        n = m.get("name")
+        if n and n in user_text:
+            rune_hits.append("符文【%s】品质%s%s" % (n, m.get("quality", ""), ("，效果：" + m.get("desc", "")) if m.get("desc") else ""))
+    if rune_hits:
+        parts.append("；".join(rune_hits[:5]))
+    # 命中装备（支持外号）→ 给该装备的使用英雄/胜率
+    item_names = set(ITEMS.values())
+    hit_item = None
+    for c in champs:
+        if c.get("name") and c["name"] in user_text:
+            break
+    else:
+        for off in item_names:
+            if off and off in user_text:
+                hit_item = off
+                break
+        if not hit_item:
+            for nick, off in ITEM_NICKS.items():
+                if nick in user_text and off in item_names:
+                    hit_item = off
+                    break
+    if hit_item:
+        alias = ("（外号：%s）" % "、".join(NAME_ITEM_NICKS.get(hit_item, [])[:5])) if NAME_ITEM_NICKS.get(hit_item) else ""
+        users = []
+        for cid, d in (STATS.get("champion_detail") or {}).items():
+            for b in (d.get("builds") or []):
+                if hit_item in (b.get("item_names") or []):
+                    cname = next((c["name"] for c in champs if c.get("id") == cid), cid)
+                    users.append("%s(该出装胜率%.1f%%)" % (cname, (b.get("wr") or 0) * 100))
+                    break
+        parts.append("装备【%s】%s；本站常用它的英雄：%s" % (hit_item, alias, "；".join(users[:8]) if users else "暂无记录"))
+    return "\n".join(parts)
+
+
+async def _deepseek_reply(messages):
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(
+            DEEPSEEK_URL,
+            headers={"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"},
+            json={"model": "deepseek-chat", "messages": messages, "temperature": 0.7, "max_tokens": 600},
+        )
+        data = r.json()
+        if r.status_code != 200:
+            raise RuntimeError("deepseek error %s: %s" % (r.status_code, str(data)[:200]))
+        return data["choices"][0]["message"]["content"]
+
+
+@app.post("/api/chat")
+async def api_chat(request: Request):
+    if not DEEPSEEK_API_KEY:
+        return JSONResponse({"ok": False, "error": "AI 服务未配置"}, status_code=503)
+    u = _auth_user(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "请先登录后再与 AI 聊天"}, status_code=401)
+    # 频率限制：同一 IP 两次请求间隔 ≥ 3 秒
+    ip = request.client.host if request.client else "?"
+    now = time.time()
+    if now - CHAT_LAST.get(ip, 0) < 3:
+        return JSONResponse({"ok": False, "error": "问得太快啦，请稍等几秒再问"}, status_code=429)
+    CHAT_LAST[ip] = now
+    d = await _body(request)
+    raw = d.get("messages") or []
+    msgs = [{"role": m["role"], "content": str(m.get("content", ""))[:2000]}
+            for m in raw if isinstance(m, dict) and m.get("role") in ("user", "assistant")][-12:]
+    if not msgs or not msgs[-1]["content"].strip():
+        return JSONResponse({"ok": False, "error": "消息不能为空"}, status_code=400)
+    ctx = _build_chat_context(msgs[-1]["content"])
+    tone = CHAT_TONE_CUTE if d.get("persona") == "cute" else CHAT_TONE_PRO
+    full = [{"role": "system", "content": CHAT_SYSTEM + "\n" + tone + "\n【今日真实数据】\n" + ctx}] + msgs
+    try:
+        reply = await _deepseek_reply(full)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "AI 服务暂时不可用，请稍后再试"}, status_code=502)
+    return {"ok": True, "reply": reply}
 
 
 @app.get("/api/augments_global", response_model=List[schemas.AugBrief])
@@ -351,6 +531,11 @@ SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.163.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
+
+# ---- AI 聊天（DeepSeek）----
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
+CHAT_LAST = {}  # ip -> 上次请求时间（简单频率限制）
 MAIL_FROM = os.environ.get("MAIL_FROM", SMTP_USER)
 
 

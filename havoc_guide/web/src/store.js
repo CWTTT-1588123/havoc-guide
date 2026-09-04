@@ -8,6 +8,11 @@ export const state = reactive({
   cat: '',           // 当前分类（view==='category' 时）
   champId: '',       // 当前英雄 id（view==='champ' 时）
   petLock: null,     // 锁定的桌宠列表（Q版）
+  q: '',             // 全局搜索关键字（顶栏搜索框 <-> 首页列表共用）
+  section: { cid: '', key: '' },  // 详情页"更多"跳转的板块（view==='section'）
+  chatOpen: false,   // AI 聊天窗是否打开
+  petTick: 0,        // 每 +1 = 触发一次桌宠随机语录气泡（页面切换/点标题时随机触发）
+  petGender: 'm',    // 当前桌宠性别：'m'=男(专业人设) / 'f'=女(活泼人设)
 })
 
 // Q 版桌宠名单
@@ -43,11 +48,19 @@ export function applyPrefs() {
   const p = loadPrefs()
   const dark = p.theme === 'dark'
   document.documentElement.classList.toggle('dark', dark)
-  // 背景
+  // 背景（自定义图片用 fixed 固定到视口：页面切换大小不变；bgPos 控制显示区域）
   const set = dark ? DARK_PRESETS : BG_PRESETS
   const matched = p.bg && set.some(x => x.css === p.bg)
-  if (p.bgImg) { document.body.style.background = 'url("' + p.bgImg + '") center/cover no-repeat' }
-  else { document.body.style.background = matched ? p.bg : '' }
+  document.body.style.background = ''
+  if (p.bgImg) {
+    document.body.style.backgroundImage = 'url("' + p.bgImg + '")'
+    document.body.style.backgroundSize = 'cover'
+    document.body.style.backgroundPosition = p.bgPos || 'center'
+    document.body.style.backgroundRepeat = 'no-repeat'
+    document.body.style.backgroundAttachment = 'fixed'
+  } else {
+    document.body.style.background = matched ? p.bg : ''
+  }
   // 桌宠锁定
   const newLock = (state.auth && Array.isArray(p.pets) && p.pets.length) ? p.pets.slice() : null
   window.__petLock = newLock
@@ -78,11 +91,20 @@ export async function getJSON(url) { const r = await fetch(url); return r.json()
 
 export async function loadServerPrefs() {
   if (!state.auth || !state.auth.token) return
-  try { const r = await apiAuth('prefs'); if (r.ok && r.prefs) { localStorage.setItem(prefsKey(), JSON.stringify(r.prefs)); applyPrefs() } } catch (e) {}
+  try {
+    const r = await apiAuth('prefs')
+    if (r.ok && r.prefs) {
+      // 服务端偏好 + 本地偏好合并（bgPos 等服务端不存的字段保留本地值）
+      const merged = Object.assign({}, loadPrefs(), r.prefs)
+      localStorage.setItem(prefsKey(), JSON.stringify(merged))
+      applyPrefs()
+    }
+  } catch (e) {}
 }
 
 export function openLogin() { state.loginOpen = true }
 export function closeLogin() { state.loginOpen = false }
+export function goHome() { state.view = 'home'; state.q = ''; state.champId = ''; state.cat = '' }
 export function openAvatarMenu() { state.avatarMenuOpen = true }
 export function closeAvatarMenu() { state.avatarMenuOpen = false }
 export function toggleTheme() {
@@ -102,7 +124,7 @@ export async function logout() {
 
 // —— 个人中心背景/主题 ——
 export function setBg(css) { const p = loadPrefs(); p.bg = css; p.bgImg = ''; savePrefs(p); applyPrefs() }
-export function setBgImg(dataUrl) { const p = loadPrefs(); p.bgImg = dataUrl; p.bg = ''; savePrefs(p); applyPrefs() }
+export function setBgImg(dataUrl, pos) { const p = loadPrefs(); p.bgImg = dataUrl; p.bgPos = pos || 'center'; p.bg = ''; savePrefs(p); applyPrefs() }
 export function clearBg() { const p = loadPrefs(); p.bgImg = ''; p.bg = ''; savePrefs(p); applyPrefs() }
 export function saveTheme(t) { const p = loadPrefs(); p.theme = t; savePrefs(p); applyPrefs() }
 

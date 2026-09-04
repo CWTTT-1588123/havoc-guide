@@ -1,9 +1,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { state, PET_IMGS } from '../store'
-
-const TRIVIA = ['早啊，今天也要快乐上分哦！', '冷静数点，别上头～', '记住补刀的手感，赢不赢看细节。', '走位再风骚一点就完美啦！', '前排扛住，后排才有输出。', '稳住，我们能赢！']
-const TRIVIA_CUTE = ['啾～', '今天也要加油鸭！', '夸夸你，你最棒！', '摸摸头～', '好耶，又赢一盘！', '嘿嘿～']
+import { TRIVIA, TRIVIA_CUTE } from '../data_trivia'
 
 const pet = ref(null)
 const bubble = ref('')
@@ -18,7 +16,7 @@ function pick() {
     if (locked.length) candidates = locked
   }
   const p = candidates[Math.floor(Math.random() * candidates.length)]
-  pet.value = p; gender.value = p[2]
+  pet.value = p; gender.value = p[2]; state.petGender = p[2]
 }
 
 function talk() {
@@ -32,12 +30,16 @@ function talk() {
   talk._t = setTimeout(() => { bubbleShow.value = false }, 6500)
 }
 
+function openChat() { state.chatOpen = true }
+
 watch(() => state.petLock, pick)
+// 切换页面/点网站标题 → 随机出现语录气泡（由 store.petTick 触发）
+watch(() => state.petTick, () => { talk() })
 onMounted(() => { pick(); talk() })
 </script>
 
 <template>
-  <div class="pet" @click="talk">
+  <div class="pet" @click="openChat">
     <div class="petbubble" v-if="bubbleShow">{{ bubble }}</div>
     <div class="petbody">
       <img v-if="pet" class="petimg" :class="{ jump: jumping }" :src="'/static/' + pet[0]" :alt="pet[1]" :title="pet[1]">
@@ -50,7 +52,7 @@ onMounted(() => { pick(); talk() })
 .petbody { width:180px; height:180px; }
 .petimg { width:180px; height:180px; display:block; object-fit:contain; filter:drop-shadow(0 8px 14px rgba(60,90,150,.28)); }
 .petimg.jump { animation:petJump .5s ease; }
-.petbubble { position:absolute; bottom:200px; right:0; width:240px; background:rgba(74,84,110,.86); color:#eef2f8; border:1px solid rgba(150,170,210,.4); border-radius:12px; padding:10px 13px; font-size:21px; line-height:1.45; box-shadow:0 8px 22px rgba(0,0,0,.25); }
+.petbubble { display:block; position:absolute; bottom:200px; right:0; width:240px; background:rgba(74,84,110,.86); color:#eef2f8; border:1px solid rgba(150,170,210,.4); border-radius:12px; padding:10px 13px; font-size:21px; line-height:1.45; box-shadow:0 8px 22px rgba(0,0,0,.25); }
 .petbubble::after { content:''; position:absolute; bottom:-8px; right:30px; border:8px solid transparent; border-top-color:rgba(74,84,110,.86); border-bottom:0; }
 @keyframes petJump { 0%{transform:translateY(0)} 30%{transform:translateY(-18px)} 60%{transform:translateY(0)} 80%{transform:translateY(-8px)} 100%{transform:translateY(0)} }
 </style>
