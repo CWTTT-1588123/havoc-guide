@@ -36,8 +36,9 @@ wegame-capture/.mitmproxy/
 # 练习用的临时 git 仓库（非项目内容）
 git练习/
 
-# 一次性临时截图（配置令牌用的调试图，非项目内容）
+# 一次性临时截图（配置/教学用的调试图，非项目内容）
 图片/permission*.png
+图片/创建git库.png
 图片/sign in github.png
 图片/海克斯大乱斗浏览器图片.png
 
