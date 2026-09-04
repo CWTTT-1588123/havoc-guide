@@ -259,6 +259,11 @@ git push
 | 回到某个版本 | `git reset --hard <hash>` |
 | 克隆别人的仓库 | `git clone 网址` |
 | 删除某个文件的跟踪（保留本地） | `git rm --cached 文件` |
+| 打版本标签(带说明,推荐) | `git tag -a v1.0 -m"说明"` |
+| 打标签到指定提交 | `git tag -a v1.0 <commit> -m"说明"` |
+| 推标签到 GitHub | `git push origin v1.0` |
+| 看所有标签 | `git tag` |
+| 看标签指向的提交 | `git log --oneline -1 v1.0` |
 
 ---
 
@@ -266,14 +271,60 @@ git push
 
 1. **`.gitignore` 注释写了同行** → 整行变成文件名，敏感文件没被忽略。**注释单独成行**，用 `git check-ignore` 验证。
 2. **push 报 `SEC_E_NO_CREDENTIALS`** → Windows 默认 `schannel` 后端有问题，`git config http.sslBackend openssl`。
-3. **push 报 `Could not connect 443`** → 国内网络，重试/代理/hotspot。
+3. **push 报 `Could not connect 443`** → 国内网络，重试/**代理 `git config --global http.proxy http://127.0.0.1:7897`**/hotspot。
 4. **敏感文件 `captured/`、`users.json` 误传** → 设 Private + 换凭证 + 删历史。
 5. **令牌写在远程地址里** → 用完 `git remote set-url` 换回干净地址，别让令牌明文留在 `.git/config`。
+6. **push 报 `403 Write access not granted`** → **Fine-grained 令牌只对你勾的仓库有效**；推别的仓库要单独给该仓库一个令牌。
+7. **push 没让你输密码** → **Git Credential Manager 已缓存凭据**（`git:https://github.com`），是好事，不用输。
 
 ---
 
-## 八、开始使用前，你在本仓库的状态
+## 八、答疑小知识（学的时候问过的）
+
+| 疑问 | 答案 |
+|---|---|
+| 为什么 `5c868de` 就够了（不是 40 位完整哈希） | git 接受**唯一的前缀缩写**；前缀唯一即可，`git log --oneline` 默认显示 7 位短哈希方便人看，真正的身份证是完整 40 位 |
+| `git log` 里 `origin/main` 显示**红色** | git 默认配色：**远端跟踪分支(origin/*)红色**、本地分支绿、tag 另一种色；**只是颜色装饰，不是错误** |
+| push 怎么记住了不输密码 | Windows **Git Credential Manager** 把令牌存入"凭据管理器"，git 自动取用。想清：删 `git:https://github.com` |
+| git 到底改的是哪个 `.git` 文件 | 默认 **`--local`**（当前仓库 `.git/config`）；要全电脑用 **`--global`**；要系统级用 `--system` |
+
+---
+
+## 九、打版本标签(tag) 与 GitHub Release
+
+**想给某个提交(版本)钉个固定名字**（如 v1.0），用 tag。
+
+### 打标签（本地）
+```powershell
+git tag -a v1.0 -m"v1.0：首次正式版"        # 给当前 HEAD 打带说明的标签(推荐 -a)
+git tag -a v1.0 <commit哈希> -m"v1.0：..."  # 给指定提交打(不一定是当前 HEAD)
+git tag                                      # 看所有标签
+git log --oneline -1 v1.0                    # 看 v1.0 指向哪个提交
+```
+
+### 推标签到 GitHub
+```powershell
+git push origin v1.0     # 把 v1.0 推到 GitHub
+```
+
+### tag 和 GitHub Release 的区别
+- **tag**：git 里给提交钉的"名字/标记"（`refs/tags/v1.0`）。
+- **Release**：GitHub 在 tag 基础上做的**发布页**，能写版本说明(Release notes)、挂可下载文件。
+- 网站项目一般 tag 就够了；想对外展示版本说明就再建个 Release。
+
+### 在 GitHub 网页建 Release
+1. 仓库页 → 右侧 **Releases** → **Create a new release**
+2. **Choose a tag** → 选 `v1.0`（已推上去）
+3. **Release title** 填标题（如 `海克斯大乱斗攻略站 v1.0`）
+4. **Release notes**：点 **`Generate release notes`** 自动生成变更日志，或自己写 Markdown
+5. **Attach binaries**：网站项目**留空**；软件才挂安装包
+6. **Release label**：正式版选 **None**；测试版选 **Pre-release**
+7. 点 **`Publish release`**（或先 `Save draft` 暂存）
+
+---
+
+## 十、开始使用前，你在本仓库的状态
 - 远端：`https://github.com/CWTTT-1588123/havoc-guide.git`（Private），分支 `main`
-- 已设 `http.sslBackend openssl`
-- 本地已 commit、`main` 已 push 过（上游 `origin/main` 已关联，直接 `git push` 即可）
+- 已设 `http.sslBackend openssl`；已配全局代理 `http.proxy=http://127.0.0.1:7897`
+- 本地已 commit、`main` 已 push 并同步；`v1.0` 标签已推
 - **每次改动后**：`git add .` → `git commit -m"..."` → `git push`

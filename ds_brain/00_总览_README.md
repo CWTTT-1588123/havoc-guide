@@ -73,7 +73,9 @@
 - **上线部署**：纯Python + systemd 部署到阿里云 ECS，公网可访问（关键坑：`--host 0.0.0.0`、`--workers 1`）。
 - **登录/认证系统**：真邮件验证码(163 SMTP)/注册(仅邮箱)/忘记密码/绑定手机号登录/角色体系(主管理员/管理员/普通)+管理后台。
 - **技术栈正规化（安全+可靠性）✅**：① 密码 **bcrypt**（旧SHA-256首登自动升级）；② **验证码安全流**（服务端生成/只发邮箱/不回传前端/60s限频/用后即删）；③ **pytest**（27个测试：统计6+接口13+模型8）；④ **pydantic 请求模型 + 类型注解 + mypy**。
-- **git/GitHub 备份**：仓库已建（Private，GitHub: CWTTT-1588123/havoc-guide），`captured/` 抓包凭证等敏感文件已正确 gitignore（踩坑：gitignore 注释不可放在模式同行）。→ **已首次 push main 成功**（踩坑：Windows schannel 报 SEC_E_NO_CREDENTIALS → `git config http.sslBackend openssl`）。
+- **git/GitHub 备份 ✅ 完整**：仓库已建（Private，GitHub: CWTTT-1588123/havoc-guide），`captured/` 抓包凭证等敏感文件已正确 gitignore（踩坑：gitignore 注释不可放在模式同行）。→ **已 push main 成功并全量同步**（踩坑：Windows schannel 报 SEC_E_NO_CREDENTIALS → `git config http.sslBackend openssl`；国内 443 → 代理 `git config --global http.proxy http://127.0.0.1:7897`；Fine-grained 令牌按仓库授权 → 推别的仓库报 403 需单独令牌）。
+- **版本标记 v1.0**：把 `havoc-guide` 正式版（提交 `5c868de`）打 tag `v1.0` 并推上 GitHub，可建对应 **Release** 发布页（教程见 `09_GitHub从零到回滚.md`）。
+- **Git 教学/练习**：用户全程学会 建库→add/commit→三种 reset→理解 .git 结构→push 上云→每次改动再 push→打版本 tag；练习仓库 `git-practice`（本地 `git练习/`）。
 - **环境分离**：爬虫与网站**各建独立 venv**（爬虫 `wegame-capture\.venv` 只装 curl_cffi+mitmproxy；网站 `havoc_guide\.venv` 装 fastapi 全家桶），并清理了爬虫 venv 里混装的网站包。
 - **前端**：登录弹窗白底加宽、验证码注册(含确认密码)、密码框睁/闭眼SVG、dark模式对比度、头像菜单不透明、自定义favicon。
 - **待做**：前端 **Vue 3 组件化**（#5，可选）；公安备案提交；SEO。
