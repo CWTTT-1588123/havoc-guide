@@ -62,6 +62,20 @@ function syncHeaderH() {
   if (h) document.documentElement.style.setProperty('--headerh', (h.offsetHeight) + 'px')
 }
 
+// 深链接：/#/champ/<id> 、 /#/category/<名> → 直接进入对应页面
+function routeUrl() {
+  if (state.view === 'champ') return '#/champ/' + state.champId
+  if (state.view === 'category') return '#/category/' + encodeURIComponent(state.cat)
+  return '#/' + state.view
+}
+function parseHash() {
+  const h = (location.hash || '').replace(/^#\/?/, '')
+  const cm = h.match(/^champ\/(\d+)/)
+  if (cm) { state.champId = cm[1]; state.view = 'champ'; return }
+  const ct = h.match(/^category\/(.+)/)
+  if (ct) { state.cat = decodeURIComponent(ct[1]); state.view = 'category' }
+}
+
 onMounted(() => {
   loadAuth()
   applyPrefs()
@@ -83,8 +97,9 @@ onMounted(() => {
     state.cat = s.cat || ''
     suppressPush = false
   })
-  // 首次进入：替换当前历史（replacestate，避免初始多出一条）
-  history.replaceState({ view: 'home', champId: '', cat: '' }, '', '#/home')
+  // 首次进入：解析深链接（如 /#/champ/804）
+  parseHash()
+  history.replaceState({ view: state.view, champId: state.champId, cat: state.cat }, '', routeUrl())
 })
 // 切换页面/点标题 → 立即换桌宠语录气泡
 function titleHome() {
@@ -97,7 +112,7 @@ watch(() => state.view, () => {
   hovered.value = false; state.avatarMenuOpen = false
   state.petTick++
   if (suppressPush) return
-  history.pushState({ view: state.view, champId: state.champId, cat: state.cat }, '', '#/' + state.view)
+  history.pushState({ view: state.view, champId: state.champId, cat: state.cat }, '', routeUrl())
 })
 </script>
 

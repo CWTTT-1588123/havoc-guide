@@ -26,24 +26,48 @@ async function scrollBottom() {
 async function send() {
   const t = input.value.trim()
   if (!t || loading.value) return
+  if (!state.auth) { openLogin(); return }
   msgs.value.push({ role: 'user', content: t })
   input.value = ''
   loading.value = true
   scrollBottom()
+  msgs.value.push({ role: 'assistant', content: '' })
+  // 通过响应式数组按索引更新，确保逐字实时渲染（不能拿原始对象引用直接改）
+  const lastMsg = () => msgs.value[msgs.value.length - 1]
   try {
-    const r = await fetch('/api/chat', {
+    const r = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(state.auth && state.auth.token ? { Authorization: 'Bearer ' + state.auth.token } : {}),
       },
-      body: JSON.stringify({ messages: msgs.value.slice(-12), persona: state.petGender === 'f' ? 'cute' : 'pro' }),
+      body: JSON.stringify({ messages: msgs.value.slice(0, -1).slice(-12), persona: state.petGender === 'f' ? 'cute' : 'pro' }),
     })
-    const d = await r.json()
-    if (d.ok && d.reply) { msgs.value.push({ role: 'assistant', content: d.reply }) }
-    else { msgs.value.push({ role: 'assistant', content: '（' + (d.error || '服务不可用，请稍后再试') + '）' }) }
+    if (!r.ok || !r.body) throw new Error('bad response')
+    const reader = r.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      let idx
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2)
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const d = JSON.parse(line.slice(6))
+            if (d.text) lastMsg().content += d.text
+            if (d.error) lastMsg().content += '（' + d.error + '）'
+            scrollBottom()
+          } catch (e) {}
+        }
+      }
+    }
+    if (!lastMsg().content) lastMsg().content = '（没有收到回复，请重试）'
   } catch (e) {
-    msgs.value.push({ role: 'assistant', content: '（网络出问题了，请稍后再试）' })
+    if (!lastMsg().content) lastMsg().content = '（网络出问题了，请稍后再试）'
   }
   loading.value = false
   scrollBottom()
@@ -64,7 +88,6 @@ watch(() => state.chatOpen, async v => { if (v) scrollBottom() })
       <div v-for="(m, i) in msgs" :key="i" class="chat-msg" :class="m.role">
         <div class="bubble">{{ m.content }}</div>
       </div>
-      <div v-if="loading" class="chat-msg assistant"><div class="bubble typing">小海克斯思考中…</div></div>
     </div>
     <div class="chat-input-row">
       <template v-if="state.auth">

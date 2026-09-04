@@ -20,7 +20,7 @@ from email.header import Header
 
 from pypinyin import lazy_pinyin
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 import httpx
 import schemas
@@ -146,6 +146,59 @@ def api_version():
 def api_site():
     """站点信息：版本 + ICP 备案号（前端页脚展示）"""
     return {"game_version": PATCH_VERSION, "icp": os.environ.get("ICP_NUMBER", "").strip()}
+
+
+# ==================== SEO：robots / sitemap / 英雄预渲染页 ====================
+SITE_URL = os.environ.get("SITE_URL", "https://haikelol.com")
+
+
+@app.get("/robots.txt")
+def robots_txt():
+    return Response(
+        content="User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n" % SITE_URL,
+        media_type="text/plain",
+    )
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    urls = ["%s/" % SITE_URL]
+    for c in STATS.get("champions", []) or []:
+        urls.append("%s/champ/%s" % (SITE_URL, c.get("id")))
+    body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            + "".join("<url><loc>%s</loc></url>\n" % u for u in urls)
+            + "</urlset>")
+    return Response(content=body, media_type="application/xml")
+
+
+@app.get("/champ/{cid}", response_class=HTMLResponse)
+def champ_seo_page(cid: str):
+    """给搜索引擎的预渲染页：真实数据 + meta，浏览器访问时跳回 SPA 对应英雄页。"""
+    cname = (CHAMPS.get(str(cid), {}) or {}).get("name", "")
+    d = STATS.get("champion_detail", {}).get(cid, {}) or {}
+    ov = d.get("overall", {}) or {}
+    wr = (ov.get("wr") or 0) * 100
+    games = ov.get("games") or 0
+    top_augs = [(AUGS.get(str(a.get("id")), {}).get("name", ""), (a.get("wr") or 0) * 100)
+                for a in (d.get("augments") or [])[:5]]
+    if not cname:
+        return HTMLResponse('<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/#/"></head><body></body></html>')
+    augs_str = "、".join("%s %.1f%%" % (n, w) for n, w in top_augs) or "暂无"
+    title = "%s 符文/出装推荐 - 海克斯大乱斗攻略站" % cname
+    desc = "%s 大乱斗整体胜率 %.1f%%（%d场）。最优符文：%s。基于真实对局数据统计。" % (cname, wr, games, augs_str)
+    html = (
+        "<!DOCTYPE html><html lang=\"zh\"><head><meta charset=\"utf-8\">"
+        "<title>%s</title>"
+        "<meta name=\"description\" content=\"%s\">"
+        "<meta property=\"og:title\" content=\"%s\">"
+        "<meta property=\"og:description\" content=\"%s\">"
+        "</head><body>"
+        "<h1>%s</h1><p>整体胜率 %.1f%% · %d 场</p><p>最优符文：%s</p>"
+        "<script>location.replace('/#/champ/%s');</script>"
+        "</body></html>"
+    ) % (title, desc, title, desc, cname, wr, games, augs_str, cid)
+    return HTMLResponse(html)
 
 
 @app.get("/api/champions", response_model=List[schemas.ChampOut])
@@ -391,6 +444,59 @@ async def api_chat(request: Request):
     except Exception:
         return JSONResponse({"ok": False, "error": "AI 服务暂时不可用，请稍后再试"}, status_code=502)
     return {"ok": True, "reply": reply}
+
+
+@app.post("/api/chat/stream")
+async def api_chat_stream(request: Request):
+    """流式聊天：逐 token 以 SSE 返回（打字机效果）。"""
+    if not DEEPSEEK_API_KEY:
+        return JSONResponse({"ok": False, "error": "AI 服务未配置"}, status_code=503)
+    u = _auth_user(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "请先登录后再与 AI 聊天"}, status_code=401)
+    ip = request.client.host if request.client else "?"
+    now = time.time()
+    if now - CHAT_LAST.get(ip, 0) < 3:
+        return JSONResponse({"ok": False, "error": "问得太快啦，请稍等几秒再问"}, status_code=429)
+    CHAT_LAST[ip] = now
+    d = await _body(request)
+    raw = d.get("messages") or []
+    msgs = [{"role": m["role"], "content": str(m.get("content", ""))[:2000]}
+            for m in raw if isinstance(m, dict) and m.get("role") in ("user", "assistant")][-12:]
+    if not msgs or not msgs[-1]["content"].strip():
+        return JSONResponse({"ok": False, "error": "消息不能为空"}, status_code=400)
+    ctx = _build_chat_context(msgs[-1]["content"])
+    tone = CHAT_TONE_CUTE if d.get("persona") == "cute" else CHAT_TONE_PRO
+    full = [{"role": "system", "content": CHAT_SYSTEM + "\n" + tone + "\n【今日真实数据】\n" + ctx}] + msgs
+
+    async def gen():
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                async with client.stream(
+                    "POST", DEEPSEEK_URL,
+                    headers={"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"},
+                    json={"model": "deepseek-chat", "messages": full, "temperature": 0.7, "max_tokens": 600, "stream": True},
+                ) as r:
+                    if r.status_code != 200:
+                        body = (await r.aread()).decode("utf-8", "ignore")[:200]
+                        yield "data: " + json.dumps({"error": "AI 服务出错 %s" % body}, ensure_ascii=False) + "\n\n"
+                        return
+                    async for line in r.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        payload = line[5:].strip()
+                        if payload == "[DONE]":
+                            break
+                        try:
+                            delta = json.loads(payload)["choices"][0]["delta"].get("content") or ""
+                        except Exception:
+                            continue
+                        if delta:
+                            yield "data: " + json.dumps({"text": delta}, ensure_ascii=False) + "\n\n"
+        except Exception:
+            yield "data: " + json.dumps({"error": "AI 服务暂时不可用，请稍后再试"}, ensure_ascii=False) + "\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
 
 
 @app.get("/api/augments_global", response_model=List[schemas.AugBrief])
