@@ -57,3 +57,60 @@ class PrefsBody(BaseModel):
 
 class AvatarBody(BaseModel):
     avatar: str = Field(..., min_length=5)
+
+
+# ==================== 响应模型（response_model，规范化接口文档） ====================
+
+class VersionOut(BaseModel):
+    game_version: str = ""
+
+
+class Best3Out(BaseModel):
+    name: str = ""
+    quality: str = ""
+    icon: str = ""
+
+
+class ChampOut(BaseModel):
+    """排行榜：单英雄（list 元素）"""
+    id: str
+    name: str = ""
+    wins: int = 0
+    games: int = 0
+    wr: float = 0.0
+    wilson: float = 0.0
+    image: str = ""
+    best3: List[Best3Out] = []
+
+
+class AugBrief(BaseModel):
+    """单个符文简述（全局符文 id→name）"""
+    id: str
+    name: str = ""
+
+
+class AugFull(BaseModel):
+    """单个符文全量（所有符文页）"""
+    id: str = ""
+    name: str = ""
+    en: str = ""
+    desc: str = ""
+    icon: str = ""
+    quality: str = ""
+
+
+class AugGroup(BaseModel):
+    """按品质分组的一档"""
+    quality: str = ""
+    items: List[AugFull] = []
+
+
+class CommentOut(BaseModel):
+    name: str = ""
+    text: str = ""
+    ts: int = 0
+
+
+class CommentsOut(BaseModel):
+    ok: bool = True
+    comments: List[CommentOut] = []

@@ -44,6 +44,8 @@ git练习/
 图片/海克斯大乱斗浏览器图片.png
 
 # 环境/构建临时目录
+.npm-cache/
+*.tmpdir/
 .pytest_cache/
 pytest-cache-*/
 pytest-cache-files-*/

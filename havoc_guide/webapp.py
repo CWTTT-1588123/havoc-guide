@@ -101,12 +101,12 @@ def home():
         html = html.replace("{{ICP_BLOCK}}", "")
     return html
 
-@app.get("/api/version")
+@app.get("/api/version", response_model=schemas.VersionOut)
 def api_version():
     return {"game_version": PATCH_VERSION}
 
 
-@app.get("/api/champions")
+@app.get("/api/champions", response_model=List[schemas.ChampOut])
 def api_champions():
     champs = STATS.get("champions", [])
     detail = STATS.get("champion_detail", {})
@@ -188,12 +188,37 @@ def api_champion(cid: str):
     return JSONResponse(detail)
 
 
-@app.get("/api/augments_global")
+# ---- 每英雄评论区（共享，所有登录用户可见）----
+@app.get("/api/champion/{cid}/comments")
+def api_comments_get(cid: str):
+    cs = [c for c in COMMENTS if c.get("champ") == cid]
+    out = [{"name": c.get("name") or "玩家", "text": c["text"], "ts": c["ts"]} for c in reversed(cs)]
+    return {"ok": True, "comments": out}
+
+
+@app.post("/api/champion/{cid}/comments")
+async def api_comments_post(cid: str, request: Request):
+    u = _auth_user(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "请先登录"}, status_code=401)
+    d = await _body(request)
+    text = str(d.get("text", "")).strip()
+    if not text:
+        return JSONResponse({"ok": False, "error": "评论不能为空"}, status_code=400)
+    if len(text) > 1000:
+        text = text[:1000]
+    COMMENTS.append({"champ": cid, "uid": u["id"], "contact": u.get("contact", ""),
+                     "name": u.get("name", ""), "text": text, "ts": int(time.time())})
+    _save_comments()
+    return {"ok": True, "comment": {"name": u.get("name", "") or "玩家", "text": text, "ts": COMMENTS[-1]["ts"]}}
+
+
+@app.get("/api/augments_global", response_model=List[schemas.AugBrief])
 def api_augments_global():
     return JSONResponse(STATS.get("augments_global", []))
 
 
-@app.get("/api/augments_all")
+@app.get("/api/augments_all", response_model=List[schemas.AugGroup])
 def api_augments_all():
     """查看所有符文：按品质分组，组内按中文名拼音排序，附效果描述（去掉问号占位）。"""
     def clean(t):
@@ -244,6 +269,10 @@ def _init_db():
             bg TEXT DEFAULT '', bgImg TEXT DEFAULT '',
             pets TEXT DEFAULT '[]', theme TEXT DEFAULT '',
             comments TEXT DEFAULT '[]')""")
+        # 每英雄共享评论区（所有用户可见）
+        conn.execute("""CREATE TABLE IF NOT EXISTS comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            champ TEXT, uid TEXT, contact TEXT, name TEXT, text TEXT, ts INTEGER)""")
 
 
 def _row_user(r):
@@ -275,6 +304,25 @@ def _save_users():
                  json.dumps(u.get("pets", [])), u.get("theme", ""), json.dumps(u.get("comments", []))))
 
 
+# —— 每英雄评论区（共享，存 SQLite）——
+COMMENTS = []
+
+
+def _load_comments():
+    with _db() as conn:
+        rows = conn.execute("SELECT * FROM comments ORDER BY ts").fetchall()
+    return [dict(r) for r in rows]
+
+
+def _save_comments():
+    with _db() as conn:
+        conn.execute("DELETE FROM comments")
+        for c in COMMENTS:
+            conn.execute(
+                "INSERT INTO comments (champ,uid,contact,name,text,ts) VALUES (?,?,?,?,?,?)",
+                (c["champ"], c["uid"], c.get("contact", ""), c.get("name", ""), c["text"], c["ts"]))
+
+
 _init_db()
 # 启动：从 SQLite 加载；若 DB 为空且旧 users.json 存在，则迁移导入
 try:
@@ -291,6 +339,10 @@ if not USERS and os.path.exists(USERS_PATH):
         if not _u.get("tokens"):
             _u["tokens"] = [_u["token"]] if _u.get("token") else []
     _save_users()
+try:
+    COMMENTS = _load_comments()
+except Exception:
+    COMMENTS = []
 
 CODES = {}  # contact -> {code, exp}
 
