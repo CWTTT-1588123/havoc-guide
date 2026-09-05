@@ -20,6 +20,9 @@ const pwdN = ref(''); const pwdN2 = ref('')
 const nameV = ref('')
 const phoneV = ref('')
 const avatarPreview = ref('')
+const emailV = ref('')
+const codeV = ref('')
+const codeSending = ref(false)
 
 // 背景
 const bgImg = ref('')
@@ -68,6 +71,25 @@ async function unbindPhone() {
   if (!confirm('确定解绑当前手机号？')) return
   const r = await apiAuth('phone', { phone: '' })
   if (r.ok) { updateAuthUser({ ...u.value, phone: '' }); form.value = ''; toast('已解绑手机号') } else { alert(r.error || '解绑失败') }
+}
+
+async function sendEmailCode() {
+  const em = emailV.value.trim()
+  if (!em || !em.includes('@')) { alert('请输入正确的邮箱地址'); return }
+  const r = await apiAuth('email_code', { email: em })
+  if (r.ok) { codeSending.value = true; toast('验证码已发送，请查收邮箱') }
+  else { alert(r.error || '发送失败'); codeSending.value = false }
+}
+async function saveEmail() {
+  const em = emailV.value.trim()
+  if (!em || !em.includes('@')) { alert('请输入正确的邮箱地址'); return }
+  if (!codeV.value.trim()) { alert('请输入验证码'); return }
+  const r = await apiAuth('email', { email: em, code: codeV.value.trim() })
+  if (r.ok) {
+    updateAuthUser({ ...u.value, contact: r.contact })
+    form.value = ''; emailV.value = ''; codeV.value = ''; codeSending.value = false
+    toast('邮箱已更换，下次可用新邮箱登录')
+  } else { alert(r.error || '更换失败') }
 }
 
 function pickBg(css) { setBg(css); refreshPrefs() }
@@ -132,6 +154,7 @@ async function onLogout() { await logout() }
           <button class="pc-btn" @click="form = form === 'pwd' ? '' : 'pwd'; pwdN=''; pwdN2=''">更改密码</button>
           <button class="pc-btn" @click="form = form === 'phone' ? '' : 'phone'; phoneV = u.phone || ''">{{ u && u.phone ? '修改手机号' : '绑定手机号' }}</button>
           <button class="pc-btn" @click="form = form === 'name' ? '' : 'name'; nameV=u.name">更改用户名</button>
+          <button class="pc-btn" @click="form = form === 'email' ? '' : 'email'; emailV=''; codeV=''; codeSending=false">更换邮箱</button>
           <button class="pc-btn danger" @click="onLogout">退出登录</button>
         </div>
         <input id="pcFile" type="file" accept="image/*" hidden @change="pickAvatar">
@@ -160,6 +183,21 @@ async function onLogout() { await logout() }
           <div class="pc-form-btns">
             <button class="pc-btn ok" @click="savePhone">{{ u && u.phone ? '保存修改' : '确认绑定' }}</button>
             <button v-if="u && u.phone" class="pc-btn danger" @click="unbindPhone">解绑</button>
+            <button class="pc-btn" @click="form=''">取消</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="form === 'email'" class="pc-formwrap">
+        <div class="pc-form">
+          <div class="pc-form-t">更换邮箱</div>
+          <div class="pc-form-tip">将向新邮箱发送验证码，验证通过后新邮箱即成为登录邮箱</div>
+          <input v-model="emailV" class="pc-form-in" placeholder="输入新邮箱地址">
+          <div class="pc-crow">
+            <input v-model="codeV" class="pc-form-in" placeholder="邮箱验证码">
+            <button class="pc-btn" :disabled="codeSending" @click="sendEmailCode">{{ codeSending ? '已发送' : '获取验证码' }}</button>
+          </div>
+          <div class="pc-form-btns">
+            <button class="pc-btn ok" @click="saveEmail">保存</button>
             <button class="pc-btn" @click="form=''">取消</button>
           </div>
         </div>

@@ -1050,6 +1050,58 @@ async def api_phone(request: Request):
     return {"ok": True, "phone": phone}
 
 
+@app.post("/api/auth/email_code")
+async def api_email_code(request: Request):
+    """换绑邮箱第一步：向新邮箱发验证码（需登录）。新邮箱不能已被注册。"""
+    u = _auth_user(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "未登录"}, status_code=401)
+    d = await _body(request)
+    email = _norm_contact(d.get("email"))
+    if not email or "@" not in email or not _valid_contact(email):
+        return JSONResponse({"ok": False, "error": "请输入正确的邮箱地址"}, status_code=400)
+    if _norm_contact(u.get("contact")) == email:
+        return JSONResponse({"ok": False, "error": "新邮箱不能与当前邮箱相同"}, status_code=400)
+    owner = _find_by_contact(email)
+    if owner and owner["id"] != u["id"]:
+        return JSONResponse({"ok": False, "error": "该邮箱已被其他账号使用"}, status_code=400)
+    if time.time() - CODES.get(email, {}).get("sent_at", 0) < 60:
+        return JSONResponse({"ok": False, "error": "发送太频繁，请稍后再试"}, status_code=429)
+    if not _smtp_ready():
+        return JSONResponse({"ok": False, "error": "邮件服务未配置，无法发送验证码"}, status_code=500)
+    code = "%06d" % secrets.randbelow(1000000)
+    CODES[email] = {"code": code, "exp": time.time() + 600, "sent_at": time.time()}
+    ok = _send_email(email, "海克斯攻略站-更换邮箱", _make_code_html(code))
+    if not ok:
+        return JSONResponse({"ok": False, "error": "邮件发送失败，请稍后重试"}, status_code=500)
+    return {"ok": True, "sent": True}   # 只提示已发送，绝不返回验证码
+
+
+@app.post("/api/auth/email")
+async def api_email(request: Request):
+    """换绑邮箱第二步：验证码校验通过后，新邮箱成为登录邮箱（需登录）。"""
+    u = _auth_user(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "未登录"}, status_code=401)
+    d = await _body(request)
+    email = _norm_contact(d.get("email"))
+    code = (d.get("code") or "").strip()
+    if not email or "@" not in email or not _valid_contact(email):
+        return JSONResponse({"ok": False, "error": "请输入正确的邮箱地址"}, status_code=400)
+    if _norm_contact(u.get("contact")) == email:
+        return JSONResponse({"ok": False, "error": "新邮箱不能与当前邮箱相同"}, status_code=400)
+    owner = _find_by_contact(email)
+    if owner and owner["id"] != u["id"]:
+        return JSONResponse({"ok": False, "error": "该邮箱已被其他账号使用"}, status_code=400)
+    c = CODES.get(email)
+    if not c or c["code"] != code or c["exp"] < time.time():
+        return JSONResponse({"ok": False, "error": "验证码错误或已过期"}, status_code=400)
+    u["contact"] = email
+    CODES.pop(email, None)
+    _save_users()
+    return {"ok": True, "contact": email}
+
+
 # ============ 用户偏好（存服务器，按账号同步）============
 PREF_KEYS = ("bg", "bgImg", "pets", "theme")
 

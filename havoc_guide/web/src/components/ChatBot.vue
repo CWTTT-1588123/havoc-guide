@@ -74,6 +74,8 @@ async function send() {
 }
 
 function close() { state.chatOpen = false }
+// 未登录点「登录后开始聊天」：先关掉聊天窗，只留登录弹窗（不遮盖、更简洁）
+function goLogin() { state.chatOpen = false; openLogin() }
 
 watch(() => state.chatOpen, async v => { if (v) scrollBottom() })
 </script>
@@ -94,7 +96,7 @@ watch(() => state.chatOpen, async v => { if (v) scrollBottom() })
         <input v-model="input" class="chat-in" placeholder="问问英雄/符文/出装…" @keyup.enter="send">
         <button class="chat-send" :disabled="loading" @click="send">发送</button>
       </template>
-      <button v-else class="chat-send full" @click="openLogin()">登录后开始聊天</button>
+      <button v-else class="chat-send full" @click="goLogin">登录后开始聊天</button>
     </div>
   </div>
 </template>
