@@ -1,7 +1,7 @@
 {
-  "games": 8338,
-  "player_records": 83374,
+  "games": 1272,
+  "player_records": 12720,
   "distinct_champions": 172,
-  "distinct_augments": 208,
+  "distinct_augments": 209,
   "output": "E:\\Deepseek Harness\\havoc_guide\\processed\\records.jsonl"
 }

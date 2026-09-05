@@ -57,3 +57,7 @@ pip-ephem-wheel-cache-*/
 pip-install-*/
 _tmp_build/
 _tmp*/
+
+# 版本切换备份与临时演练
+*_backup.*
+tmp/

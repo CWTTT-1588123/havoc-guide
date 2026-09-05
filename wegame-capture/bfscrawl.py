@@ -76,7 +76,7 @@ def save_players(players):
 
 def load_players():
     if os.path.exists(PLAYERS_FILE):
-        with open(PLAYERS_FILE, encoding="utf-8") as f:
+        with open(PLAYERS_FILE, encoding="utf-8-sig") as f:
             return set(json.load(f))
     return set()
 
@@ -84,7 +84,7 @@ def load_players():
 def record_hidden(pid, code):
     hidden = {}
     if os.path.exists(HIDDEN_FILE):
-        with open(HIDDEN_FILE, encoding="utf-8") as f:
+        with open(HIDDEN_FILE, encoding="utf-8-sig") as f:
             hidden = json.load(f)
     hidden[pid] = {"error_code": code, "time": time.strftime("%Y-%m-%d %H:%M:%S")}
     with open(HIDDEN_FILE, "w", encoding="utf-8") as f:
