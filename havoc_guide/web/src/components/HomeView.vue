@@ -46,6 +46,7 @@ function goAugments() { state.view = 'augments' }
 function goCategories() { state.cat = '刺客'; state.view = 'category' }
 
 function augChip(b) { return `<span class="aug-chip hasicon" data-name="${b.name}">${b.icon ? `<img class="aicon" src="${b.icon}" onerror="this.style.display='none'">` : '<span class="aicon ph"></span>'}${b.name}${b.quality ? `<span class="q ${b.quality}">${b.quality}</span>` : ''}</span>` }
+function rankOf(i) { return (page.value - 1) * per.value + i + 1 }
 function fmtPct(w) { return (w * 100).toFixed(1) + '%' }
 
 watch(() => state.q, () => { page.value = 1 })
@@ -67,15 +68,18 @@ onMounted(load)
     <thead>
       <tr>
         <th>英雄</th>
-        <th>胜率</th><th>场次</th><th>最优符文</th>
+        <th class="th-wr">胜率</th><th class="th-games">场次</th>
+        <th class="th-rank">排名</th>
+        <th>最优符文</th>
       </tr>
     </thead>
     <tbody>
-      <tr v-for="c in cur" :key="c.id" class="row" @click="goChamp(c.id)">
+      <tr v-for="(c, i) in cur" :key="c.id" class="row" @click="goChamp(c.id)">
         <td><div class="champline"><img class="avatar" :src="c.image" @error="avErr($event, c.name)" alt=""><span>{{ c.name }}</span></div></td>
-        <td><span class="winrate" :class="{ low: c.wr < 0.45 }">{{ fmtPct(c.wr) }}</span></td>
-        <td class="num">{{ c.games }}</td>
-        <td><div class="augs"><span v-for="b in (c.best3 || [])" :key="b.name" v-html="augChip(b)"></span></div></td>
+        <td class="c-wr"><span class="winrate" :class="{ low: c.wr < 0.45 }">{{ fmtPct(c.wr) }}</span></td>
+        <td class="c-games num">{{ c.games }}</td>
+        <td class="c-rank"><span class="rankbadge" :class="{ r1: rankOf(i) === 1, r2: rankOf(i) === 2, r3: rankOf(i) === 3 }">{{ rankOf(i) }}</span></td>
+        <td class="c-augs"><div class="augs"><span v-for="b in (c.best3 || [])" :key="b.name" v-html="augChip(b)"></span></div></td>
       </tr>
     </tbody>
   </table>

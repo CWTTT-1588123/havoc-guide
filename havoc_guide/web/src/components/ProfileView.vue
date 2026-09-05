@@ -25,9 +25,9 @@ const avatarPreview = ref('')
 const bgImg = ref('')
 
 // 桌宠锁定
-const petSel = ref((prefs.pets || []).slice())
+const petSel = ref(((prefs.value && prefs.value.pets) || []).slice())
 // 主题
-const themeSel = ref(prefs.theme || 'light')
+const themeSel = ref((prefs.value && prefs.value.theme) || 'light')
 
 function back() { goHome() }
 
@@ -85,17 +85,19 @@ function onBgImg(e) {
 }
 let dragging = false, dragStart = null, dragStartPos = null
 function parsePos(p) { const m = /([\d.]+)%\s+([\d.]+)%/.exec(p); return m ? [parseFloat(m[1]), parseFloat(m[2])] : [50, 50] }
-function startDrag(e) { dragging = true; dragStart = { x: e.clientX, y: e.clientY }; dragStartPos = bgPos.value }
-function onDrag(e) {
-  if (!dragging) return
-  const rect = e.currentTarget.getBoundingClientRect()
-  const dx = (e.clientX - dragStart.x) / rect.width * 100
-  const dy = (e.clientY - dragStart.y) / rect.height * 100
+function dragTo(clientX, clientY, el) {
+  const rect = el.getBoundingClientRect()
+  const dx = (clientX - dragStart.x) / rect.width * 100
+  const dy = (clientY - dragStart.y) / rect.height * 100
   const [sx, sy] = parsePos(dragStartPos)
   const cx = Math.max(0, Math.min(100, Math.round(sx + dx)))
   const cy = Math.max(0, Math.min(100, Math.round(sy + dy)))
   bgPos.value = cx + '% ' + cy + '%'
 }
+function startDrag(e) { dragging = true; dragStart = { x: e.clientX, y: e.clientY }; dragStartPos = bgPos.value }
+function onDrag(e) { if (!dragging) return; dragTo(e.clientX, e.clientY, e.currentTarget) }
+function startTouchDrag(e) { const t = e.touches[0]; if (!t) return; dragging = true; dragStart = { x: t.clientX, y: t.clientY }; dragStartPos = bgPos.value }
+function onTouchDrag(e) { if (!dragging) return; const t = e.touches[0]; if (t) dragTo(t.clientX, t.clientY, e.currentTarget) }
 function endDrag() { dragging = false }
 function confirmBg() { setBgImg(bgPreview.value, bgPos.value); bgPreview.value = ''; refreshPrefs(); toast('背景已设置') }
 
@@ -185,15 +187,19 @@ async function onLogout() { await logout() }
         <input id="pcBgImg" type="file" accept="image/*" hidden @change="onBgImg">
         <button class="pc-btn" @click="resetBg">恢复默认</button>
       </div>
+    </div>
 
-      <!-- 自定义背景预览：拖动图片选择要显示的区域 -->
-      <div v-if="bgPreview" class="bgpreview-wrap">
+    <!-- 自定义背景预览弹窗（站点风格）：拖动图片选择显示区域；手机=竖框，电脑=横框 -->
+    <div v-if="bgPreview" class="bgmodal-ov" @click.self="bgPreview=''">
+      <div class="bgmodal">
+        <button class="bgmodal-x" @click="bgPreview=''">✕</button>
+        <div class="bgmodal-t">自定义背景预览 <span class="bgmodal-sub">拖动图片，选择要显示的区域</span></div>
         <div class="bgpreview"
              :style="{ backgroundImage: 'url(' + bgPreview + ')', backgroundPosition: bgPos }"
-             @mousedown="startDrag" @mousemove="onDrag" @mouseup="endDrag" @mouseleave="endDrag">
-          <span class="bgprev-hint">在框内拖动图片，选择网站要显示的部分（预览）</span>
+             @mousedown="startDrag" @mousemove="onDrag" @mouseup="endDrag" @mouseleave="endDrag"
+             @touchstart.prevent="startTouchDrag" @touchmove.prevent="onTouchDrag" @touchend="endDrag">
         </div>
-        <div class="pc-okrow">
+        <div class="pc-okrow bgmodal-btns">
           <button class="pc-btn ok" @click="confirmBg">确认使用此背景</button>
           <button class="pc-btn" @click="bgPreview=''">取消</button>
         </div>
@@ -208,7 +214,7 @@ async function onLogout() { await logout() }
           <img :src="'/static/' + p[0]" :alt="p[1]"><span>{{ p[1] }}</span>
         </div>
       </div>
-      <div class="pc-okrow">
+      <div class="pc-okrow pc-okcol">
         <button class="pc-btn ok" @click="confirmPets">确定</button>
         <span class="pc-okhint">点击选中/取消 · 可多选，确定后锁定</span>
       </div>

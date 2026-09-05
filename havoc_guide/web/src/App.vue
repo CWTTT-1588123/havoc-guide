@@ -31,31 +31,44 @@ const showHeader = computed(() => state.view !== 'profile' && state.view !== 'ad
 
 let suppressPush = false
 
-// —— 符文效果悬浮提示（全局委托）——
-let ttEl, __augdesc = null
+// —— 符文效果说明：电脑端=鼠标悬浮提示（原样），手机端=点击居中弹窗（点外部关闭）——
+let tipEl, ttEl, __augdesc = null, hoverOK = false
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])) }
 async function ensureDesc() {
   if (__augdesc) return
   try { __augdesc = {}; const g = await getJSON('/api/augments_all'); g.forEach(gr => (gr.items || []).forEach(a => { if (a.name) __augdesc[a.name] = a.desc || '' })) }
   catch (e) { __augdesc = {} }
 }
-let ttTimer
-function showTT(el) {
-  clearTimeout(ttTimer)
+let tipTimer
+function showTip(el) {
+  clearTimeout(tipTimer)
   const name = el.getAttribute('data-name') || ''
   const d = (__augdesc && __augdesc[name]) || ''
-  ttEl.innerHTML = `<b>${esc(name)}</b>${d ? `<div class="ttdesc">${esc(d)}</div>` : ''}`
-  ttEl.style.display = 'block'
+  tipEl.innerHTML = `<b>${esc(name)}</b>${d ? `<div class="ttdesc">${esc(d)}</div>` : ''}`
+  tipEl.style.display = 'block'
 }
-function hideTT() { clearTimeout(ttTimer); ttTimer = setTimeout(() => { ttEl.style.display = 'none' }, 120) }
-function moveTT(e) {
-  if (ttEl.style.display === 'none') return
+function hideTip() { clearTimeout(tipTimer); tipTimer = setTimeout(() => { tipEl.style.display = 'none' }, 120) }
+function moveTip(e) {
+  if (tipEl.style.display === 'none') return
   const pad = 12; let x = e.clientX + 16, y = e.clientY + 16
-  const r = ttEl.getBoundingClientRect()
+  const r = tipEl.getBoundingClientRect()
   if (x + r.width > innerWidth - pad) x = e.clientX - r.width - 16
   if (y + r.height > innerHeight - pad) y = e.clientY - r.height - 12
-  ttEl.style.left = x + 'px'; ttEl.style.top = y + 'px'
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px'
 }
+function showAugModal(el) {
+  const name = el.getAttribute('data-name') || ''
+  const qEl = el.querySelector('.q')
+  const q = qEl ? qEl.textContent : ''
+  const img = el.querySelector('img')
+  const icon = (img && img.src) ? `<img class="tm-icon" src="${img.src}" alt="">` : '<span class="tm-icon ph">✦</span>'
+  const d = (__augdesc && __augdesc[name]) || ''
+  ttEl.querySelector('.ttcard').innerHTML =
+    `${icon}<div class="tm-name">${esc(name)}${q ? `<span class="q ${esc(q)}">${esc(q)}</span>` : ''}</div>` +
+    `<div class="tm-desc">${d ? esc(d) : '（暂无描述）'}</div><div class="tm-hint">点击空白处关闭</div>`
+  ttEl.style.display = 'flex'
+}
+function hideAugModal() { ttEl.style.display = 'none' }
 
 function syncHeaderH() {
   const h = document.querySelector('header')
@@ -82,12 +95,26 @@ onMounted(() => {
   syncHeaderH()
   window.addEventListener('resize', syncHeaderH)
   getJSON('/api/site').then(d => { if (d) { if (d.game_version) ver.value = d.game_version; if (d.icp) icp.value = d.icp } }).catch(() => {})
-  // 符文效果悬浮提示
-  ttEl = document.createElement('div'); ttEl.className = 'tt'; ttEl.style.display = 'none'; document.body.appendChild(ttEl)
+  // 符文说明：电脑（有鼠标）→ 悬浮提示；手机（触摸）→ 点击居中弹窗
+  hoverOK = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches
+  tipEl = document.createElement('div'); tipEl.className = 'tt'; tipEl.style.display = 'none'; document.body.appendChild(tipEl)
+  ttEl = document.createElement('div'); ttEl.className = 'ttov'; ttEl.style.display = 'none'
+  ttEl.innerHTML = '<div class="ttcard"></div>'
+  document.body.appendChild(ttEl)
   ensureDesc()
-  document.addEventListener('mouseover', e => { const el = e.target.closest && e.target.closest('[data-name]'); if (el) showTT(el) })
-  document.addEventListener('mousemove', moveTT)
-  document.addEventListener('mouseout', e => { const el = e.target.closest && e.target.closest('[data-name]'); if (el && !el.contains(e.relatedTarget)) hideTT() })
+  document.addEventListener('mouseover', e => { if (!hoverOK) return; const el = e.target.closest && e.target.closest('[data-name]'); if (el) showTip(el) })
+  document.addEventListener('mousemove', e => { if (hoverOK) moveTip(e) })
+  document.addEventListener('mouseout', e => { if (!hoverOK) return; const el = e.target.closest && e.target.closest('[data-name]'); if (el && !el.contains(e.relatedTarget)) hideTip() })
+  ttEl.addEventListener('click', e => { if (!(e.target instanceof Element) || !e.target.closest('.ttcard')) hideAugModal() })
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideAugModal() })
+  document.addEventListener('click', e => {
+    if (hoverOK) return
+    const t = e.target
+    const el = (t instanceof Element) && t.closest('[data-name]')
+    if (!el) return
+    e.stopPropagation()   // 点符文卡不再触发所在行/卡片的跳转
+    showAugModal(el)
+  }, true)
   // 浏览器后退/前进 → 切换视图
   window.addEventListener('popstate', (e) => {
     const s = e.state || {}
@@ -117,6 +144,9 @@ watch(() => state.view, () => {
 </script>
 
 <template>
+  <div class="bgfix" v-if="state.bgLayer"
+       :style="{ backgroundImage: 'url(' + state.bgLayer.img + ')', backgroundPosition: state.bgLayer.pos }"></div>
+
   <header v-if="showHeader">
     <h1 class="titlebtn" @click="titleHome">
       <img class="lollogo" alt="LoL" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmMmQ2ODkiLz48c3RvcCBvZmZzZXQ9Ii41IiBzdG9wLWNvbG9yPSIjYzk5NzFmIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjOWM3NDE4Ii8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImIiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM2M2MwZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyYzVhOWEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0idXJsKCNnKSIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjM5IiBmaWxsPSIjMGUxNjMwIi8+PGNpcmNsZSBjeD0iNTAiIGN5PSI1MCIgcj0iMzYiIGZpbGw9Im5vbmUiIHN0cm9rZT0idXJsKCNnKSIgc3Ryb2tlLXdpZHRoPSIxLjQiIG9wYWNpdHk9Ii41Ii8+PHBhdGggZD0iTTMzIDI0IEw0OCAyNCBMNDggNTYgTDcxIDU2IEw3MSA3MiBMMzMgNzIgWiIgZmlsbD0idXJsKCNnKSIgc3Ryb2tlPSIjN2E1YTEwIiBzdHJva2Utd2lkdGg9IjAuNyIvPjxwb2x5Z29uIHBvaW50cz0iNjAsMzQgNzAsNDMgNjAsNTIgNTAsNDMiIGZpbGw9InVybCgjYikiLz48Y2lyY2xlIGN4PSI2MCIgY3k9IjQzIiByPSIyIiBmaWxsPSIjZGZmMGZmIi8+PHBhdGggZD0iTTM4IDcgaDI0IiBzdHJva2U9InVybCgjZykiIHN0cm9rZS13aWR0aD0iMi42IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=">

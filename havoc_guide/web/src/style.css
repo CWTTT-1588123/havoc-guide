@@ -4,10 +4,10 @@
   header { padding:22px 28px; display:flex; align-items:center; gap:24px; background:var(--glass); position:sticky; top:0; z-index:5; }
   /* 进入"个人中心/后台"这类独立页面时隐藏顶部标题栏（更像新的一页） */
   body.nobare header { display:none; }
-  h1 { font-size:38px; margin:0; color:var(--txt); font-weight:800; display:inline-flex; align-items:center; gap:12px; }
+  h1 { font-size:46px; margin:0; color:var(--txt); font-weight:800; display:inline-flex; align-items:center; gap:12px; }
   .titlebtn { cursor:pointer; transition:opacity .15s; }
   .titlebtn:hover { opacity:.82; }
-  .lollogo { width:52px; height:52px; }
+  .lollogo { width:58px; height:58px; }
   .sub { color:var(--sub); font-size:24px; }
   .verlabel { position:fixed; right:24px; bottom:64px; color:#111; font-size:22px; font-weight:700; z-index:9999; }
   html.dark .verlabel { color:#e8edf8; }
@@ -44,7 +44,7 @@
   /* 登录后：只留圆形头像 + 深色圆环，去掉按钮白色方框 */
   .loginwrap.logged .loginbtn { background:transparent; border:0; padding:0; box-shadow:none; }
   .loginwrap.logged .loginbtn:hover { background:transparent; }
-  .login-av { width:46px; height:46px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 3px #2c3a55; }
+  .login-av { width:58px; height:58px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 3px #2c3a55; }
   .loginwrap { position:relative; }
   /* 未登录提示 */
   .loginpop { position:absolute; top:100%; right:0; width:250px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:22px; line-height:1.55; box-shadow:0 8px 22px rgba(60,90,150,.18); z-index:99999; opacity:0; visibility:hidden; transform:translateY(-6px); transition:opacity .28s ease, transform .28s ease; pointer-events:none; }
@@ -127,10 +127,13 @@
   .pc-bg.darkpre span { color:#e8edf8; text-shadow:0 1px 2px rgba(0,0,0,.5); }
   .pc-bg.on { border-color:var(--blue); box-shadow:0 0 0 2px rgba(74,168,255,.25); }
   .pc-pets { display:flex; flex-wrap:wrap; gap:12px; }
-  .pc-pet { width:92px; cursor:pointer; text-align:center; border-radius:12px; padding:6px; border:2px solid var(--line); transition:.15s; }
+  .pc-pet { position:relative; width:92px; cursor:pointer; text-align:center; border-radius:12px; padding:6px; border:2px solid var(--line); transition:.15s; }
   .pc-pet img { width:76px; height:76px; object-fit:contain; display:block; margin:0 auto; }
   .pc-pet span { font-size:19px; color:var(--txt); }
-  .pc-pet.on { border-color:var(--blue); background:rgba(74,168,255,.10); }
+  /* 选中（锁定）状态：同主题切换一样明显 —— 蓝色描边+光环+蓝色名字+右上角 ✓ */
+  .pc-pet.on { border-color:var(--blue); background:rgba(74,168,255,.12); box-shadow:0 0 0 2px rgba(59,143,224,.28); }
+  .pc-pet.on span { color:var(--blue); font-weight:700; }
+  .pc-pet.on::after { content:'✓'; position:absolute; top:-9px; right:-9px; width:26px; height:26px; border-radius:50%; background:var(--blue); color:#fff; font-size:17px; font-weight:800; line-height:26px; text-align:center; display:inline-block; box-shadow:0 2px 6px rgba(0,0,0,.3); }
   .pc-themes { display:flex; gap:12px; }
   .pc-theme { padding:10px 26px; border:1px solid var(--line); background:var(--panel2); color:var(--txt); border-radius:10px; font-size:22px; cursor:pointer; transition:.15s; }
   .pc-theme.on { border-color:var(--blue); background:rgba(74,168,255,.10); color:var(--blue); font-weight:600; }
@@ -237,10 +240,18 @@
   .cnum { font-size:20px; color:var(--sub); margin-left:8px; }
   .caugs { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
   .caugs .aug-chip { font-size:21px; }
-  /* 符文效果悬浮提示 */
+  /* 符文效果悬浮提示（电脑端鼠标悬停，原样） */
   .tt { position:fixed; z-index:100000; max-width:440px; background:rgba(16,22,40,.97); color:#e6ecf8; border:1px solid rgba(120,150,220,.42); border-radius:12px; padding:12px 14px; font-size:22px; line-height:1.5; box-shadow:0 12px 32px rgba(0,0,0,.35); pointer-events:none; }
   .tt b { color:#9cc2ff; font-size:23px; }
   .tt .ttdesc { margin-top:6px; color:#cfd9f0; }
+  /* 符文效果弹窗（手机端点击 → 页面居中；点外部关闭，站点风格） */
+  .ttov { position:fixed; inset:0; z-index:100300; background:rgba(8,12,22,.62); display:flex; align-items:center; justify-content:center; padding:18px; }
+  .ttcard { width:min(92vw, 440px); max-height:82vh; overflow:auto; background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(120,150,220,.42); border-radius:16px; padding:22px 24px; box-shadow:0 20px 60px rgba(0,0,0,.45); }
+  .tm-icon { width:72px; height:72px; border-radius:12px; object-fit:cover; display:block; margin:0 auto 12px; }
+  .tm-icon.ph { display:flex; align-items:center; justify-content:center; border:1px dashed rgba(126,148,210,.45); color:rgba(170,185,230,.7); font-size:30px; }
+  .tm-name { text-align:center; font-size:26px; font-weight:700; color:#f2f5fc; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+  .tm-desc { margin-top:10px; font-size:20px; line-height:1.6; color:#cfd9f0; }
+  .tm-hint { margin-top:12px; text-align:center; font-size:15px; color:rgba(170,185,230,.55); }
   /* 网页桌宠 */
   .pet { position:fixed; right:22px; bottom:120px; z-index:9999; display:flex; flex-direction:column; align-items:center; cursor:pointer; user-select:none; }
   .petbody { width:180px; height:180px; }
@@ -257,6 +268,15 @@
   .winrate.low { color:var(--red); }
   .pct { color:var(--sub); font-size:24px; }
   .augs { display:flex; gap:8px; flex-wrap:wrap; }
+  /* 主页排名徽章：仅手机端显示（电脑端保留胜率/场次两列）；第1金/第2银/第3铜，其余符文风深蓝徽章 */
+  .rankbadge { display:none; align-items:center; justify-content:center; min-width:52px; height:52px; padding:0 14px; border-radius:26px; font-size:26px; font-weight:800; color:#dfe6f5; background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(100,120,200,.35); box-shadow:0 3px 10px rgba(30,45,95,.25); }
+  .rankbadge.r1 { color:#5a3c00; background:linear-gradient(160deg,#ffe9a8,#f5c84c); border-color:#d9a819; }
+  .rankbadge.r2 { color:#3a3f47; background:linear-gradient(160deg,#eef1f6,#c8d2e0); border-color:#9fb0c8; }
+  .rankbadge.r3 { color:#6a3a1a; background:linear-gradient(160deg,#f0cfa8,#d9955a); border-color:#b06a2e; }
+  /* 排名列（手机）在电脑端隐藏 */
+  .th-rank, .c-rank { display:none; }
+  /* 符文组合行场次：电脑端在左（符文后），手机端在右（胜率后） */
+  .num-mob { display:none; }
   .augs .aug-chip { background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(100,120,200,.35); color:#dfe6f5; }
   .aug-chip { background:var(--panel2); border:1px solid var(--line); padding:4px 14px; border-radius:14px; font-size:24px; color:var(--txt); display:inline-flex; align-items:center; }
   .aicon { width:36px; height:36px; border-radius:8px; vertical-align:middle; margin-right:8px; }
@@ -311,6 +331,8 @@
   .cq { color:var(--gold); font-size:24px; margin:0 0 12px; font-weight:600; }
   .itemrow .r { display:flex; gap:14px; align-items:center; white-space:nowrap; }
   .tag { background:#fdf6e0; border:1px solid #e0ca86; color:#8a6d1a; padding:4px 14px; border-radius:12px; font-size:24px; }
+  /* 克制推荐：电脑端标签与符文卡一行（原样）；手机端拆两行（见媒体查询） */
+  .ctrline { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   a { color:var(--blue); text-decoration:none; }
   .muted { color:var(--sub); }
   .empty { color:var(--sub); padding:24px; text-align:center; }
@@ -319,8 +341,13 @@
   .aqcol { display:flex; flex-direction:column; background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:16px; }
   .aqcol .list { display:flex; flex-wrap:wrap; gap:12px; align-items:stretch; }
   @media (max-width:1000px){ .aqgrid { grid-template-columns:1fr; } }
-  /* 单个符文"扑克牌"卡片：统一小尺寸、同行等高、图标在顶部同一水平线、文字长短留白 */
-  .singlecard { flex:1 0 175px; min-width:175px; height:325px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:18px 12px; background:var(--panel2); border:1px solid var(--line); border-radius:16px; text-align:center; transition:.15s; box-shadow:0 3px 10px rgba(60,90,150,.08); }
+  /* 单个符文"扑克牌"卡片（电脑端原样：三品质并排、卡片自适应换行）；手机端两列+排名序号见媒体查询 */
+  .singlecard { position:relative; flex:1 0 175px; min-width:175px; height:325px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:18px 12px; background:var(--panel2); border:1px solid var(--line); border-radius:16px; text-align:center; transition:.15s; box-shadow:0 3px 10px rgba(60,90,150,.08); }
+  /* 排名序号（仅手机端显示）：1金/2银/3铜，其余深蓝（符文风） */
+  .srank { display:none; position:absolute; top:8px; left:8px; width:34px; height:34px; border-radius:50%; align-items:center; justify-content:center; font-size:19px; font-weight:800; color:#dfe6f5; background:rgba(30,38,60,.85); border:1px solid rgba(120,140,210,.4); }
+  .srank.sr1 { color:#5a3c00; background:linear-gradient(160deg,#ffe9a8,#f5c84c); border-color:#d9a819; }
+  .srank.sr2 { color:#3a3f47; background:linear-gradient(160deg,#eef1f6,#c8d2e0); border-color:#9fb0c8; }
+  .srank.sr3 { color:#6a3a1a; background:linear-gradient(160deg,#f0cfa8,#d9955a); border-color:#b06a2e; }
   /* 所有带符文图标的容器统一深色渐变，浅色发光图标才看得清（单个符文卡/符文chip/所有符文卡） */
   .hasicon { background:linear-gradient(160deg,#161d33,#10142a); border-color:rgba(100,120,200,.35); }
   .singlecard.hasicon { box-shadow:0 4px 14px rgba(30,45,95,.25); }
@@ -399,8 +426,161 @@
   html.dark .catpick .ccname { color:#e8edf8; }
   html.dark .catpick .ccnum { color:#9aa6c8; }
   .toolbar h2 { font-size:32px; margin:0; }
-  /* 自定义背景预览（拖动截取）：接近屏幕尺寸 */
-  .bgpreview-wrap { margin-top:16px; }
-  .bgpreview { width:100%; height:calc(100vh - 240px); min-height:480px; background-size:cover; background-repeat:no-repeat; border:2px solid var(--line); border-radius:14px; cursor:move; position:relative; overflow:hidden; user-select:none; }
+  /* 固定背景图层（自定义图片，电脑/手机都固定大小） */
+  .bgfix { position:fixed; inset:0; z-index:-1; background-size:cover; background-repeat:no-repeat; background-position:center; }
+  /* 背景预览弹窗（站点风格） */
+  .bgmodal-ov { position:fixed; inset:0; z-index:100200; background:rgba(10,15,28,.6); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .bgmodal { position:relative; width:min(96vw, 1000px); max-height:94vh; overflow:auto; background:#fff; border-radius:18px; padding:22px 26px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  html.dark .bgmodal { background:#141c2e; }
+  .bgmodal-x { position:absolute; top:10px; right:14px; border:0; background:transparent; color:var(--sub); font-size:24px; cursor:pointer; line-height:1; }
+  .bgmodal-x:hover { color:var(--txt); }
+  .bgmodal-t { font-size:26px; font-weight:700; color:var(--txt); margin-bottom:14px; }
+  .bgmodal-sub { font-size:20px; font-weight:400; color:var(--sub); margin-left:10px; }
+  .bgpreview { width:100%; height:min(56vh, 460px); background-size:cover; background-repeat:no-repeat; border:2px solid var(--line); border-radius:14px; cursor:move; position:relative; overflow:hidden; user-select:none; touch-action:none; }
   .bgpreview:active { cursor:grabbing; }
-  .bgprev-hint { position:absolute; left:50%; bottom:10px; transform:translateX(-50%); background:rgba(10,15,28,.7); color:#eef2f8; font-size:18px; padding:4px 14px; border-radius:10px; white-space:nowrap; }
+  .bgmodal-btns { justify-content:center; margin-top:14px; }
+
+  /* ===================== 移动端适配（≤768px 平板/手机，≤480px 手机） ===================== */
+  @media (max-width:768px){
+    html, body { overflow-x:hidden; }
+    body { font-size:17px; }
+    header { padding:10px 12px; gap:10px; flex-wrap:wrap; }
+    .titlebtn { font-size:22px; gap:8px; }
+    .lollogo { width:32px; height:32px; }
+    .sbar { order:9; width:100%; max-width:100%; margin:0; }
+    .sb-in { font-size:16px; padding:9px 6px; }
+    .sb-btn { font-size:16px; padding:9px 14px; }
+    .loginbtn { font-size:16px; padding:6px 12px; }
+    .login-av { width:40px; height:40px; }
+    .loginwrap { margin-left:auto; }
+    .box { padding:0 10px; margin:14px auto; }
+    .toolbar { gap:8px; margin-bottom:12px; }
+    .btn { font-size:15px; padding:9px 12px; }
+    .btn.primary { margin-left:auto; }
+    input[type=text] { min-width:0; width:100%; font-size:16px; padding:10px 14px; }
+    /* 首页排行榜：手机不再横滑，改为纵向卡片列表 */
+    #tbl { display:block; width:100%; background:transparent; border:0; box-shadow:none; }
+    #tbl thead { display:none; }
+    #tbl tbody { display:block; }
+    #tbl tr.row { display:flex; flex-wrap:wrap; align-items:center; gap:2px 10px; margin:0 0 10px; padding:12px 10px; background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:0 6px 18px rgba(60,90,150,.08); }
+    #tbl td { display:flex; align-items:center; padding:0; border:0; font-size:15px; background:transparent; }
+    /* 手机卡片：胜率/场次隐藏，显示排名徽章 */
+    #tbl td.c-wr, #tbl td.c-games { display:none; }
+    #tbl td:first-child { flex:1 1 auto; min-width:0; }
+    #tbl td.c-rank { flex:none; justify-content:flex-end; margin-left:auto; }
+    #tbl td.c-augs { flex:1 1 100%; margin-top:8px; }
+    .rankbadge { display:inline-flex; min-width:44px; height:44px; font-size:20px; padding:0 10px; border-radius:22px; }
+    /* 手机：三个推荐符文固定三排（每行一个） */
+    #tbl .augs { flex-direction:column; align-items:flex-start; gap:6px; }
+    /* 符文组合行：场次移到胜率右侧 */
+    .num-desk { display:none; }
+    .num-mob { display:inline; }
+    [data-name] { cursor:pointer; }
+    .q { padding:0 7px; font-size:14px; line-height:20px; }
+    #homeBar { max-width:none; }
+    .winrate { font-size:16px; }
+    .num { font-size:16px; }
+    .aug-chip { font-size:14px; padding:2px 9px; }
+    .aicon { width:22px; height:22px; margin-right:5px; }
+    .avatar { width:36px; height:36px; }
+    .pager { gap:10px; }
+    .pgbtn { width:40px; height:40px; font-size:22px; }
+    .pginfo { font-size:15px; }
+    .detail { padding:16px; }
+    .dhead { gap:12px; flex-wrap:wrap; }
+    .dhead img { width:64px; height:64px; }
+    .dhead h2 { font-size:24px; }
+    .bigwr { font-size:34px; }
+    .secnav { gap:6px; }
+    .navbtn { font-size:15px; padding:8px 12px; }
+    .sec h3, .sechead { font-size:21px; }
+    .cap { font-size:15px; }
+    .itemrow { padding:10px 12px; flex-wrap:wrap; }
+    .itemrow .aug-chip { font-size:21px; padding:5px 12px; border-radius:13px; }
+    .itemrow .aicon { width:28px; height:28px; margin-right:7px; }
+    .itemrow .aicon.ph::after { font-size:15px; }
+    /* 克制推荐：标签一行、符文卡片一行（固定两行） */
+    .itemrow.ctr { align-items:flex-start; }
+    .itemrow.ctr .l { flex-direction:column; align-items:flex-start; gap:8px; }
+    .aqgrid { gap:10px; }
+    .aqcol { padding:10px; }
+    /* 最优单个符文：两列网格（第1、2在上排，第3、4在下排） */
+    .aqcol .list { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    .singlecard { width:auto; min-width:0; height:auto; min-height:200px; justify-content:flex-start; padding:14px 8px 10px; gap:5px; }
+    .srank { display:flex; width:30px; height:30px; font-size:17px; top:6px; left:6px; }
+    /* 符文名与品质分两行 */
+    .singlecard .sname { flex-direction:column; gap:4px; }
+    .singlecard .sname .q { margin-left:0; }
+    .pc-head { flex-direction:column; align-items:flex-start; gap:12px; }
+    .pc-okrow.pc-okcol { flex-direction:column; align-items:flex-start; gap:8px; }
+    .sicon { width:72px; height:72px; }
+    .sname { font-size:18px; }
+    .swr { font-size:24px; }
+    .snum { font-size:16px; }
+    .catgrid { grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:10px; }
+    .cavatar { width:44px; height:44px; }
+    .cname { font-size:18px; }
+    .cwr { font-size:24px; }
+    .catttl { font-size:24px; }
+    .catpick .catcard { padding:8px 10px; }
+    .ccname { font-size:17px; }
+    .pc-accbtns { margin-left:0; }
+    .pc-btn { font-size:15px; padding:7px 12px; }
+    .pc-bg { width:110px; height:70px; }
+    .pc-pet { width:72px; }
+    .pc-pet img { width:58px; height:58px; }
+    .pet { right:8px; bottom:76px; }
+    .petbody { width:64px; height:64px; }
+    .petimg { width:64px; height:64px; }
+    .petbubble { width:160px; font-size:15px; bottom:70px; right:0; }
+    .chatwin { right:8px; bottom:76px; width:min(94vw, 420px); height:min(64vh, 520px); }
+    .bubble { font-size:16px; }
+    .chat-in { font-size:16px; }
+    .chat-send { font-size:16px; padding:0 14px; }
+    .login-card { padding:18px 16px 22px; }
+    .ltabs { font-size:21px; }
+    .lrow { padding:10px 12px; }
+    .lin { font-size:17px; }
+    .lprefix { font-size:17px; }
+    .lsubmit, .lreg, .llogin { font-size:18px; padding:11px 0; }
+    .avatar-menu { width:min(86vw, 300px); }
+    .verlabel { font-size:15px; left:10px; right:auto; bottom:12px; }
+    .site-foot { font-size:15px; padding:14px 12px; }
+    .qhead { height:56px; top:calc(var(--headerh,0px) + var(--i) * 56px); }
+    .qttl { font-size:20px; }
+    .augcard { height:auto; min-height:200px; }
+    .augcard .sdesc { font-size:15px; }
+    .com-in { font-size:16px; }
+    .bubble, .com-text { font-size:16px; }
+    .bgmodal { padding:16px 12px; }
+    .bgmodal-t { font-size:20px; }
+    .bgmodal-sub { font-size:15px; margin-left:6px; }
+    /* 手机：预览框改为竖屏（手机屏幕比例） */
+    .bgpreview { width:min(80vw, 300px); height:min(72vh, 560px); margin:0 auto; }
+    /* 符文弹窗：手机近全宽 */
+    .ttcard { padding:18px 16px; }
+    .tm-icon { width:60px; height:60px; }
+    .tm-name { font-size:22px; }
+    .tm-desc { font-size:18px; }
+  }
+
+  @media (max-width:480px){
+    body { font-size:16px; }
+    .titlebtn { font-size:20px; }
+    .btn { font-size:14px; padding:8px 10px; }
+    th, td { padding:8px 10px; font-size:14px; }
+    .singlecard { min-height:170px; }
+    .srank { width:26px; height:26px; font-size:15px; }
+    .rankbadge { min-width:38px; height:38px; font-size:18px; }
+    .aqcol .list { gap:8px; }
+    .sicon { width:60px; height:60px; }
+    .sname { font-size:16px; }
+    .swr { font-size:21px; }
+    .pgbtn { width:36px; height:36px; font-size:20px; }
+    .catgrid { grid-template-columns:repeat(auto-fill, minmax(130px,1fr)); }
+    .chatwin { height:min(70vh, 480px); }
+    .petbody { width:56px; height:56px; }
+    .petimg { width:56px; height:56px; }
+    .petbubble { width:140px; font-size:13px; bottom:62px; }
+    .bgpreview { width:min(88vw, 280px); height:min(70vh, 520px); }
+  }

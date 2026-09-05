@@ -122,4 +122,11 @@ html.dark .chat-msg.assistant .bubble { background:#1c2536; }
 .chat-send:hover { filter:brightness(1.1); }
 .chat-send:disabled { opacity:.6; cursor:default; }
 .chat-send.full { width:100%; padding:12px 0; }
+@media (max-width:768px){
+  .chatwin { right:8px; bottom:76px; width:min(94vw, 420px); height:min(64vh, 520px); }
+  .chat-title { font-size:18px; }
+  .bubble { font-size:16px; }
+  .chat-in { font-size:16px; }
+  .chat-send { font-size:16px; padding:0 14px; }
+}
 </style>

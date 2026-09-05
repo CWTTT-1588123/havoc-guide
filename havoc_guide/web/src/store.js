@@ -13,6 +13,7 @@ export const state = reactive({
   chatOpen: false,   // AI 聊天窗是否打开
   petTick: 0,        // 每 +1 = 触发一次桌宠随机语录气泡（页面切换/点标题时随机触发）
   petGender: 'm',    // 当前桌宠性别：'m'=男(专业人设) / 'f'=女(活泼人设)
+  bgLayer: null,     // 自定义背景图层 {img, pos}（fixed 全屏层，手机也固定大小）
 })
 
 // Q 版桌宠名单
@@ -48,17 +49,14 @@ export function applyPrefs() {
   const p = loadPrefs()
   const dark = p.theme === 'dark'
   document.documentElement.classList.toggle('dark', dark)
-  // 背景（自定义图片用 fixed 固定到视口：页面切换大小不变；bgPos 控制显示区域）
+  // 背景：自定义图片走 fixed 全屏层（电脑/手机都固定大小）；预设渐变走 body
   const set = dark ? DARK_PRESETS : BG_PRESETS
   const matched = p.bg && set.some(x => x.css === p.bg)
-  document.body.style.background = ''
   if (p.bgImg) {
-    document.body.style.backgroundImage = 'url("' + p.bgImg + '")'
-    document.body.style.backgroundSize = 'cover'
-    document.body.style.backgroundPosition = p.bgPos || 'center'
-    document.body.style.backgroundRepeat = 'no-repeat'
-    document.body.style.backgroundAttachment = 'fixed'
+    state.bgLayer = { img: p.bgImg, pos: p.bgPos || 'center' }
+    document.body.style.background = 'transparent'
   } else {
+    state.bgLayer = null
     document.body.style.background = matched ? p.bg : ''
   }
   // 桌宠锁定

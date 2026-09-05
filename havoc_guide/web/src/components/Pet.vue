@@ -55,4 +55,15 @@ onMounted(() => { pick(); talk() })
 .petbubble { display:block; position:absolute; bottom:200px; right:0; width:240px; background:rgba(74,84,110,.86); color:#eef2f8; border:1px solid rgba(150,170,210,.4); border-radius:12px; padding:10px 13px; font-size:21px; line-height:1.45; box-shadow:0 8px 22px rgba(0,0,0,.25); }
 .petbubble::after { content:''; position:absolute; bottom:-8px; right:30px; border:8px solid transparent; border-top-color:rgba(74,84,110,.86); border-bottom:0; }
 @keyframes petJump { 0%{transform:translateY(0)} 30%{transform:translateY(-18px)} 60%{transform:translateY(0)} 80%{transform:translateY(-8px)} 100%{transform:translateY(0)} }
+@media (max-width:768px){
+  .pet { right:8px; bottom:76px; }
+  .petbody { width:64px; height:64px; }
+  .petimg { width:64px; height:64px; }
+  .petbubble { width:160px; font-size:15px; bottom:70px; right:0; }
+}
+@media (max-width:480px){
+  .petbody { width:56px; height:56px; }
+  .petimg { width:56px; height:56px; }
+  .petbubble { width:140px; font-size:13px; bottom:62px; }
+}
 </style>

@@ -179,4 +179,15 @@ html.dark .login-card { background:#141c2e; }
 .llogin { background:linear-gradient(135deg,#2c4a72,#4a6a94); color:#fff; border:0; }
 .llogin:hover { filter:brightness(1.1); }
 .ltip { text-align:center; margin-top:12px; color:var(--sub); font-size:20px; }
+@media (max-width:768px){
+  .login-card { padding:18px 16px 22px; }
+  .ltabs { font-size:21px; }
+  .lrow { padding:10px 12px; }
+  .lin { font-size:17px; }
+  .lprefix { font-size:17px; }
+  .lsubmit, .lreg, .llogin { font-size:18px; padding:11px 0; }
+  .ltab { font-size:19px; }
+  .lget, .lforgot, .leye { font-size:18px; }
+  .lhint, .ltip { font-size:16px; }
+}
 </style>

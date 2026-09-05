@@ -1146,3 +1146,16 @@ async def api_admin_delete(request: Request, uid: str):
     USERS.pop(uid, None)
     _save_users()
     return {"ok": True}
+
+
+# ============ 搜索引擎站长验证文件（百度/Google/Bing 等）============
+# 把验证文件放进 static/ 目录，即可在网站根路径直接访问（如 /baidu_verify_xxx.html）
+@app.get("/{fname}", response_class=HTMLResponse)
+def verify_file(fname: str):
+    prefixes = ("baidu_verify_", "google", "Googlesite", "BingSiteAuth", "yandex_", "naver")
+    if fname.startswith(prefixes):
+        p = os.path.join(STATIC_DIR, fname)
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as f:
+                return f.read()
+    return JSONResponse({"error": "not found"}, status_code=404)

@@ -16,11 +16,12 @@ function augChip(name, q, icon) {
 function itemCard(name, icon) {
   return `<span class="aug-chip hasicon" data-name="${esc(name)}">${icon ? `<img class="aicon" src="${icon}" onerror="this.style.display='none'">` : '<span class="aicon ph"></span>'}${esc(name)}</span>`
 }
-function singleRow(a) {
-  return `<div class="singlecard hasicon" data-name="${esc(a.name)}">${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${esc(a.name)}${a.quality ? `<span class="q ${esc(a.quality)}">${esc(a.quality)}</span>` : ''}</div><div class="swr">${(a.wr * 100).toFixed(1)}%</div><div class="snum">${a.games}场</div></div>`
+function singleRow(a, i) {
+  const rk = (i ?? 0) + 1
+  return `<div class="singlecard hasicon" data-name="${esc(a.name)}"><span class="srank${rk <= 3 ? ' sr' + rk : ''}">${rk}</span>${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${esc(a.name)}${a.quality ? `<span class="q ${esc(a.quality)}">${esc(a.quality)}</span>` : ''}</div><div class="swr">${(a.wr * 100).toFixed(1)}%</div><div class="snum">${a.games}场</div></div>`
 }
 function comboRow(c) {
-  return `<div class="itemrow"><div class="l">${(c.augment_meta || []).map(m => augChip(m.name, m.quality, m.icon)).join('')} <span class="num">${c.games}场</span></div><span class="winrate">${(c.wr * 100).toFixed(1)}%</span></div>`
+  return `<div class="itemrow"><div class="l">${(c.augment_meta || []).map(m => augChip(m.name, m.quality, m.icon)).join('')} <span class="num num-desk">${c.games}场</span></div><div class="r"><span class="winrate">${(c.wr * 100).toFixed(1)}%</span> <span class="num num-mob">${c.games}场</span></div></div>`
 }
 function synergyRow(s) {
   return `<div class="itemrow"><div class="l">${augChip(s.aname, s.aquality, s.aicon)}+${augChip(s.bname, s.bquality, s.bicon)} <span class="num">${s.games}场</span></div><div class="r"><span class="winrate">${(s.wr * 100).toFixed(1)}%</span> <span class="pct">${s.lift > 0 ? '▲' : '▼'}${Math.abs(s.lift * 100).toFixed(1)}%</span></div></div>`
@@ -29,7 +30,7 @@ function buildRow(b) {
   return `<div class="itemrow"><div class="l">${(b.item_names || []).map((x, i) => itemCard(x, (b.item_icons || [])[i])).join('')} <span class="num">${b.games}场</span></div><span class="winrate">${(b.wr * 100).toFixed(1)}%</span></div>`
 }
 function counterRow(s) {
-  return `<div class="itemrow"><div class="l"><span class="tag">${esc(s.tag)}</span> ${augChip(s.augment_name, s.augment_quality, s.icon)} <span class="num">${s.games}场</span></div><span class="pct">${s.lift > 0 ? '▲' : '▼'} ${Math.abs(s.lift * 100).toFixed(1)}%</span></div>`
+  return `<div class="itemrow ctr"><div class="l"><span class="tag">${esc(s.tag)}</span><div class="ctrline">${augChip(s.augment_name, s.augment_quality, s.icon)} <span class="num">${s.games}场</span></div></div><span class="pct">${s.lift > 0 ? '▲' : '▼'} ${Math.abs(s.lift * 100).toFixed(1)}%</span></div>`
 }
 function qualityBlocks(dd, full) {
   return `<div class="aqgrid">${(dd.augments_by_quality || []).map(g => `<div class="aqcol"><div class="cq">${esc(g.quality)}</div><div class="list">${g.items.slice(0, full ? g.items.length : 5).map(singleRow).join('')}</div></div>`).join('')}</div>`

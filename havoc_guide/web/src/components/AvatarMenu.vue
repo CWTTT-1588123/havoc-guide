@@ -35,4 +35,11 @@ html.dark .avatar-menu { background:#1c2536; }
 .am-item:hover { background:rgba(74,168,255,.08); }
 .am-chev { margin-left:auto; color:var(--sub); }
 .am-item.logout { color:var(--red); }
+@media (max-width:768px){
+  .avatar-menu { width:min(86vw, 300px); }
+  .am-av { width:60px; height:60px; margin-top:14px; }
+  .am-name { font-size:22px; }
+  .am-item { font-size:19px; padding:10px 16px; }
+  .am-admin { font-size:15px; }
+}
 </style>
