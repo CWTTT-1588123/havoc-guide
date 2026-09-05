@@ -3,6 +3,7 @@ import { reactive } from 'vue'
 export const state = reactive({
   auth: null,        // { token, user } 或 null
   loginOpen: false,
+  loginPop: false,   // 手机端「登录后可以」弹层（点击登录按钮切换，非悬浮）
   avatarMenuOpen: false,
   view: 'home',      // 'home' | 'profile' | 'admin' | 'champ' | 'category' | 'augments'
   cat: '',           // 当前分类（view==='category' 时）
@@ -100,7 +101,7 @@ export async function loadServerPrefs() {
   } catch (e) {}
 }
 
-export function openLogin() { state.loginOpen = true }
+export function openLogin() { state.loginOpen = true; state.loginPop = false }
 export function closeLogin() { state.loginOpen = false }
 export function goHome() { state.view = 'home'; state.q = ''; state.champId = ''; state.cat = '' }
 export function openAvatarMenu() { state.avatarMenuOpen = true }

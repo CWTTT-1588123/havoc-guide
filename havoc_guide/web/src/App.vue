@@ -22,11 +22,18 @@ const avatar = computed(() =>
 
 const isLogged = computed(() => !!state.auth)
 
-function onLoginClick() { if (isLogged.value) { state.view = 'profile' } else { openLogin() } }
+// 登录按钮：电脑端直接开登录页；手机端先弹「登录后可以」弹层（底部有登录/注册按钮）
+function onLoginClick() {
+  if (isLogged.value) { state.view = 'profile'; return }
+  if (hoverOK) { openLogin(); return }
+  state.loginPop = !state.loginPop
+}
+function popToLogin() { state.loginPop = false; openLogin() }
 function onEnter() { hovered.value = true }
 function onLeave() { hovered.value = false; state.avatarMenuOpen = false }
 const showAvatarMenu = computed(() => isLogged.value && (state.avatarMenuOpen || hovered.value))
-const showLoginPop = computed(() => !isLogged.value && hovered.value)
+// 电脑端：悬浮显示；手机端：点击切换显示（防触屏悬停态卡住）
+const showLoginPop = computed(() => !isLogged.value && (hoverOK ? hovered.value : state.loginPop))
 const showHeader = computed(() => state.view !== 'profile' && state.view !== 'admin')
 
 let suppressPush = false
@@ -111,9 +118,14 @@ onMounted(() => {
     if (hoverOK) return
     const t = e.target
     const el = (t instanceof Element) && t.closest('[data-name]')
-    if (!el) return
-    e.stopPropagation()   // 点符文卡不再触发所在行/卡片的跳转
-    showAugModal(el)
+    if (el) {
+      e.stopPropagation()   // 点符文卡不再触发所在行/卡片的跳转
+      if (state.loginPop) state.loginPop = false
+      showAugModal(el)
+      return
+    }
+    // 点「登录后可以」弹层以外区域 → 关闭
+    if (state.loginPop && !((t instanceof Element) && t.closest('.loginwrap'))) state.loginPop = false
   }, true)
   // 浏览器后退/前进 → 切换视图
   window.addEventListener('popstate', (e) => {
@@ -134,9 +146,9 @@ function titleHome() {
   else { state.petTick++ }                 // 已在主页：直接触发一次
 }
 
-// 视图变化 → 清悬停 + 记录历史（后退可用）+ 立即换气泡
+// 视图变化 → 清悬停/登录弹层 + 记录历史（后退可用）+ 立即换气泡
 watch(() => state.view, () => {
-  hovered.value = false; state.avatarMenuOpen = false
+  hovered.value = false; state.avatarMenuOpen = false; state.loginPop = false
   state.petTick++
   if (suppressPush) return
   history.pushState({ view: state.view, champId: state.champId, cat: state.cat }, '', routeUrl())
@@ -162,7 +174,7 @@ watch(() => state.view, () => {
         <template v-if="isLogged"><img class="login-av" :src="avatar" alt=""></template>
         <template v-else>登录/注册</template>
       </button>
-      <div v-if="showLoginPop" class="loginpop on"><b>登录后可以：</b><div>· 发表评论</div><div>· 自定义网页背景</div><div>· 锁定 Q 版人物形象</div><div>· 改变网站风格</div><div>· 与 AI 助手聊天</div></div>
+      <div v-if="showLoginPop" class="loginpop on"><b>登录后可以：</b><div>· 发表评论</div><div>· 自定义网页背景</div><div>· 锁定 Q 版人物形象</div><div>· 改变网站风格</div><div>· 与 AI 助手聊天</div><button class="loginpop-btn" @click="popToLogin">登录 / 注册</button></div>
       <AvatarMenu v-if="showAvatarMenu" />
     </div>
   </header>

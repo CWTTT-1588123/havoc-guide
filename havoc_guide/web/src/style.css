@@ -50,6 +50,9 @@
   .loginpop { position:absolute; top:100%; right:0; width:250px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:22px; line-height:1.55; box-shadow:0 8px 22px rgba(60,90,150,.18); z-index:99999; opacity:0; visibility:hidden; transform:translateY(-6px); transition:opacity .28s ease, transform .28s ease; pointer-events:none; }
   html.dark .loginpop { background:#1c2536; }
   .loginpop b { color:var(--blue); }
+  /* 登录后可以弹层底部：登录/注册按钮（手机端点击流：先弹层 → 按钮 → 登录页） */
+  .loginpop-btn { display:block; width:100%; margin-top:10px; padding:9px 0; border:0; border-radius:10px; background:linear-gradient(135deg,#2c4a72,#4a6a94); color:#fff; font-size:20px; font-weight:700; cursor:pointer; }
+  .loginpop-btn:hover { filter:brightness(1.1); }
   .loginwrap:not(.logged) .loginpop.on { opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
   .loginpop::before { content:''; position:absolute; top:-10px; left:0; right:0; height:10px; }
   /* 登录后：悬停用户头像弹出菜单（B站风格） */
