@@ -164,7 +164,7 @@ function onTouchDrag(e) { if (!dragging) return; const t = e.touches[0]; if (t) 
 function endDrag() { dragging = false }
 function confirmBg() { setBgImg(bgPreview.value, bgPos.value); bgPreview.value = ''; refreshPrefs(); toast('背景已设置') }
 
-function togglePet(file) { petSel.value = petSel.value.includes(file) ? petSel.value.filter(x => x !== file) : petSel.value.concat([file]) }
+function pickPet(file) { petSel.value = petSel.value.includes(file) ? [] : [file] }
 function confirmPets() { const p = loadPrefs(); p.pets = petSel.value.slice(); savePrefs(p); applyPrefs(); refreshPrefs(); toast('已锁定 Q 版形象') }
 
 function pickTheme(t) { themeSel.value = t }
@@ -299,13 +299,13 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
     <div class="pc-sec">
       <h3>锁定 Q 版人物形象</h3>
       <div class="pc-pets">
-        <div v-for="p in PET_IMGS" :key="p[0]" class="pc-pet" :class="{ on: petSel.includes(p[0]) }" @click="togglePet(p[0])">
+        <div v-for="p in PET_IMGS" :key="p[0]" class="pc-pet" :class="{ on: petSel.includes(p[0]) }" @click="pickPet(p[0])">
           <img :src="'/static/' + p[0]" :alt="p[1]"><span>{{ p[1] }}</span>
         </div>
       </div>
       <div class="pc-okrow pc-okcol">
         <button class="pc-btn ok" @click="confirmPets">确定</button>
-        <span class="pc-okhint">点击选中/取消 · 可多选，确定后锁定</span>
+        <span class="pc-okhint">点击选中 · 每次只能选择一个，再点一次可取消，确定后锁定</span>
       </div>
     </div>
 
@@ -324,7 +324,7 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
       <h3>编辑 AI 助手</h3>
       <div class="pc-form-tip">写下你希望「小海克斯」成为的样子——性格、口吻、对你的称呼、爱聊的话题……保存后立即生效，收获属于你的专属陪伴。</div>
       <textarea v-model="aiPrompt" class="ai-prompt-in" rows="5" maxlength="1000"
-                placeholder="例如：你是一个温柔贴心的姐姐，叫我“宝贝”，说话轻声细语，喜欢听我分享日常，也会认真给我游戏建议，用「～」结尾……"></textarea>
+                placeholder="写下你希望小海克斯成为的样子……"></textarea>
       <div class="pc-okrow">
         <button class="pc-btn ok" @click="saveAiPrompt">保存人设</button>
         <button class="pc-btn" @click="resetAiPrompt">恢复默认</button>
