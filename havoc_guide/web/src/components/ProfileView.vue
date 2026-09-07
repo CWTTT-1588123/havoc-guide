@@ -185,6 +185,9 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
 
     <!-- 我的账号 -->
     <div class="pc-sec">
+      <div v-if="u && u.is_admin" class="pc-admin-top">
+        <button class="pc-btn ok" @click="state.view = 'admin'">管理后台</button>
+      </div>
       <h3>我的账号</h3>
       <div class="pc-acc">
         <img class="pc-av" :src="avatar" title="点击更换头像" @click="clickAvatarInput">
@@ -205,7 +208,6 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
           <button class="pc-btn" @click="form = form === 'phone' ? '' : 'phone'; phoneV = u.phone || ''">{{ u && u.phone ? '修改手机号' : '绑定手机号' }}</button>
           <button class="pc-btn" @click="form = form === 'name' ? '' : 'name'; nameV=u.name">更改用户名</button>
           <button class="pc-btn" @click="form = form === 'email' ? '' : 'email'; emailV=''; codeV=''; codeSending=false">更换邮箱</button>
-          <button v-if="u && u.is_admin" class="pc-btn ok" @click="state.view = 'admin'">管理后台</button>
           <button class="pc-btn danger" @click="onLogout">退出登录</button>
         </div>
         <input id="pcFile" type="file" accept="image/*" hidden @change="pickAvatar">

@@ -122,6 +122,7 @@
   .pf-logout:hover { border-color:var(--red); background:rgba(224,106,106,.10); }
   /* 个人中心 */
   .pc-hello { color:var(--sub); font-size:23px; }
+  .pc-admin-top { margin-bottom:14px; }
   .pc-head { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
   .pc-sec { margin-bottom:26px; padding-bottom:20px; border-bottom:1px solid var(--line); }
   .pc-sec h3 { margin:0 0 14px; font-size:29px; color:var(--gold); }
