@@ -72,6 +72,9 @@ async function selectAnn(a) {
 
 function back() { goHome() }
 
+// 模板里直接写 document 会被 Vue 编译成上下文查找导致失效，必须走 script 函数
+function clickAvatarInput() { const el = document.getElementById('pcFile'); if (el) el.click() }
+
 function pickAvatar(e) {
   const f = e.target.files[0]; if (!f) return
   const rd = new FileReader()
@@ -184,7 +187,7 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
     <div class="pc-sec">
       <h3>我的账号</h3>
       <div class="pc-acc">
-        <img class="pc-av" :src="avatar" title="点击更换头像" @click="document.getElementById('pcFile').click()">
+        <img class="pc-av" :src="avatar" title="点击更换头像" @click="clickAvatarInput">
         <div class="pc-accinfo">
           <div class="pc-accname">{{ u ? u.name : '' }}</div>
           <div class="pc-accsub">{{ contact }}</div>
@@ -197,7 +200,7 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
           <span v-if="unread > 0" class="pc-badge mail-badge">{{ unread > 99 ? '99+' : unread }}</span>
         </button>
         <div class="pc-accbtns">
-          <button class="pc-btn" @click="document.getElementById('pcFile').click()">更换头像</button>
+          <button class="pc-btn" @click="clickAvatarInput">更换头像</button>
           <button class="pc-btn" @click="form = form === 'pwd' ? '' : 'pwd'; pwdN=''; pwdN2=''">更改密码</button>
           <button class="pc-btn" @click="form = form === 'phone' ? '' : 'phone'; phoneV = u.phone || ''">{{ u && u.phone ? '修改手机号' : '绑定手机号' }}</button>
           <button class="pc-btn" @click="form = form === 'name' ? '' : 'name'; nameV=u.name">更改用户名</button>

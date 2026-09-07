@@ -625,6 +625,10 @@ def _init_db():
         conn.execute("""CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY,
             title TEXT, content TEXT, created INTEGER, ver TEXT DEFAULT '')""")
+        # 老库迁移：新增 ver（公告版本号）列
+        cols_a = [r["name"] for r in conn.execute("PRAGMA table_info(announcements)").fetchall()]
+        if "ver" not in cols_a:
+            conn.execute("ALTER TABLE announcements ADD COLUMN ver TEXT DEFAULT ''")
         # 老库迁移：新增 ai_prompt（自定义 AI 人设）/ read_anns（已读公告ID）列
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
         if "ai_prompt" not in cols:
@@ -755,19 +759,23 @@ try:
     ANNS = _load_anns()
 except Exception:
     ANNS = []
-if not ANNS:  # 首次上线：自动写入 v1.3.2 / v1.3.1 两条公告
-    ANNS = [{"id": 1, "ver": "v1.3.2", "title": ANN_132_TITLE, "content": ANN_132_CONTENT, "created": int(time.time())},
-            {"id": 2, "ver": "v1.3.1", "title": ANN_131_TITLE, "content": ANN_131_CONTENT, "created": int(time.time()) - 3600}]
-    _save_anns()
-else:
-    # 旧版合并文案（一条公告混装两个版本）下线，换成按版本拆分的两条，全员重新未读
-    kept = [a for a in ANNS if a.get("title") not in ANN_OLD_TITLES]
-    if len(kept) != len(ANNS):
-        base = max([a.get("id", 0) for a in kept], default=0)
-        kept += [{"id": base + 1, "ver": "v1.3.2", "title": ANN_132_TITLE, "content": ANN_132_CONTENT, "created": int(time.time())},
-                 {"id": base + 2, "ver": "v1.3.1", "title": ANN_131_TITLE, "content": ANN_131_CONTENT, "created": int(time.time()) - 3600}]
-        ANNS = kept
+try:
+    if not ANNS:  # 首次上线：自动写入 v1.3.2 / v1.3.1 两条公告
+        ANNS = [{"id": 1, "ver": "v1.3.2", "title": ANN_132_TITLE, "content": ANN_132_CONTENT, "created": int(time.time())},
+                {"id": 2, "ver": "v1.3.1", "title": ANN_131_TITLE, "content": ANN_131_CONTENT, "created": int(time.time()) - 3600}]
         _save_anns()
+    else:
+        # 旧版合并文案（一条公告混装两个版本）下线，换成按版本拆分的两条，全员重新未读
+        kept = [a for a in ANNS if a.get("title") not in ANN_OLD_TITLES]
+        if len(kept) != len(ANNS):
+            base = max([a.get("id", 0) for a in kept], default=0)
+            kept += [{"id": base + 1, "ver": "v1.3.2", "title": ANN_132_TITLE, "content": ANN_132_CONTENT, "created": int(time.time())},
+                     {"id": base + 2, "ver": "v1.3.1", "title": ANN_131_TITLE, "content": ANN_131_CONTENT, "created": int(time.time()) - 3600}]
+            ANNS = kept
+            _save_anns()
+except Exception:
+    # 公告播种失败绝不影响站点启动（ANNS 保持已加载数据，接口侧仍可用）
+    pass
 
 CODES = {}  # contact -> {code, exp}
 
