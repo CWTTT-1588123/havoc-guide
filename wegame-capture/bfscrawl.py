@@ -16,6 +16,25 @@ BASE_URL = "https://www.wegame.com.cn/api/v1/wegame.pallas.game.LolBattle/"
 IMPERSONATE = os.environ.get("IMPERSONATE", "chrome124")
 PATCH_VERSION = os.environ.get("PATCH_VERSION", "16.16")  # 只收指定补丁版本（默认16.16）
 
+# —— 多账号/多大区支持（2026-09 为黑色玫瑰 area=10 增加）——
+# REQ_FILE   : 指定用哪份抓包凭证（默认=最新一份）。多账号同时爬时每个进程指自己的凭证。
+# AREA       : 覆盖抓包里的 area（默认用抓包自带的大区）。
+# SEED_FROM_GAMES : 是否从 data/ 现有对局补种子玩家（新大区应设 0，避免混入其他大区玩家）。
+REQ_FILE = os.environ.get("REQ_FILE", "")
+AREA_ENV = os.environ.get("AREA", "")
+SEED_FROM_GAMES = os.environ.get("SEED_FROM_GAMES", "1") != "0"
+WORKER = os.environ.get("WORKER", "")   # 每区多进程分片：状态文件名加 _w<WORKER> 后缀
+
+
+def _state_file(name):
+    """状态文件名：默认区=原名；显式AREA=加_a<area>；多进程分片=再加_w<worker>。"""
+    base = name
+    if AREA_ENV:
+        base = "%s_a%s" % (name, AREA_ENV)
+    if WORKER:
+        base = base + "_w" + WORKER
+    return os.path.join(BASE_DIR, base + ".json")
+
 
 def cookie_dict(s):
     d = {}
@@ -27,8 +46,11 @@ def cookie_dict(s):
 
 
 def load_auth():
-    files = sorted(glob.glob(os.path.join(BASE_DIR, "captured", "REQ_GetBattleDetail_*.json")))
-    r = json.load(open(files[-1], encoding="utf-8"))  # 用最新的（重新抓包后的新cookie/token）
+    if REQ_FILE:
+        files = [REQ_FILE]
+    else:
+        files = sorted(glob.glob(os.path.join(BASE_DIR, "captured", "REQ_GetBattleDetail_*.json")))
+    r = json.load(open(files[-1], encoding="utf-8"))  # 指定凭证或最新（重新抓包后的新cookie/token）
     h = r["headers"]
     b = json.loads(r["body"])
     return cookie_dict(h.get("cookie", "")), b
@@ -37,8 +59,11 @@ def load_auth():
 COOKIES, AUTHBODY = load_auth()
 OWNER_ID = AUTHBODY["id"]  # 当前账号的 id（作为 "查看者" 身份去调 GetBattleDetail）
 ACCOUNT_TYPE = AUTHBODY.get("account_type", 2)
-AREA = AUTHBODY.get("area", 1)
+AREA = int(AREA_ENV) if AREA_ENV else AUTHBODY.get("area", 1)   # 大区：显式覆盖 > 抓包自带
 FROM_SRC = AUTHBODY.get("from_src", "lol_helper")
+
+PLAYERS_FILE = _state_file("players_seen")
+HIDDEN_FILE = _state_file("hidden")
 
 _client = creq.Session(impersonate=IMPERSONATE)
 _client.headers.update({
@@ -70,8 +95,11 @@ def detail(game_id):
 
 
 def save_players(players):
-    with open(PLAYERS_FILE, "w", encoding="utf-8") as f:
+    # 原子写：先写临时文件再替换，避免中途被杀导致状态文件损坏
+    tmp = PLAYERS_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(list(players), f, ensure_ascii=False)
+    os.replace(tmp, PLAYERS_FILE)
 
 
 def load_players():
@@ -92,8 +120,17 @@ def record_hidden(pid, code):
 
 
 def seed_from_games(seen):
-    # 从现有 data/ 对局里提取所有玩家 openid 作为种子
-    for f in glob.glob(os.path.join(OUT_DIR, "detail_*.json")):
+    # 从 data/ 对局里提取玩家 openid 作为种子。
+    # 多区并存：显式 AREA 时种本区文件（area=1 → 无前缀 detail_*.json；其他区 → detail_a<area>_*.json），避免跨区污染。
+    if AREA_ENV and AREA_ENV != "1":
+        pattern = os.path.join(OUT_DIR, "detail_a%s_*.json" % AREA_ENV)
+        skip_prefixed = False
+    else:
+        pattern = os.path.join(OUT_DIR, "detail_*.json")
+        skip_prefixed = True
+    for f in glob.glob(pattern):
+        if skip_prefixed and os.path.basename(f).startswith("detail_a"):
+            continue
         try:
             d = json.load(open(f, encoding="utf-8"))
             for p in (d.get("battle_detail", {}) or {}).get("player_details", []):
@@ -111,8 +148,12 @@ def main():
     delay = float(os.environ.get("DELAY", "0.3"))
     count = 7
 
+    print("[start] area=%s patch=%s auth=%s max_games=%d max_players=%d pages=%d"
+          % (AREA, PATCH_VERSION, (REQ_FILE or "最新抓包"), max_games, max_players, max_pages), flush=True)
+
     seen_players = load_players()
-    seed_from_games(seen_players)
+    if SEED_FROM_GAMES:
+        seed_from_games(seen_players)   # 新大区(AREA/SEED_FROM_GAMES=0)不混入其他大区的玩家种子
     seen_players.add(OWNER_ID)  # 永远含自己
     queue = list(seen_players)
 
@@ -140,6 +181,9 @@ def main():
             if code == 8025009:
                 print("[AUTH-EXPIRED] 登录凭证过期，停止本次抓取（需重新抓包刷新 cookie）| player=%s" % pid, flush=True)
                 return
+            if code == 8000022:
+                print("[VERIFY-NEEDED] 触发滑块验证，停止本次抓取（需在客户端过滑块后重跑）| player=%s" % pid, flush=True)
+                return
             if code != 0:
                 record_hidden(pid, code)
                 print("[hidden] player=%s error_code=%s" % (pid, code), flush=True)
@@ -163,7 +207,9 @@ def main():
                     if str((det.get("battle_detail", {}) or {}).get("game_server_version", "")).strip() != PATCH_VERSION:
                         seen_games.add(gid)
                         continue
-                    with open(os.path.join(OUT_DIR, "detail_%s.json" % gid), "w", encoding="utf-8") as f:
+                    # 多区并存：显式指定 AREA 时文件名带区前缀，避免与其他大区对局ID冲突互相覆盖
+                    fname = "detail_a%s_%s.json" % (AREA, gid) if AREA_ENV else "detail_%s.json" % gid
+                    with open(os.path.join(OUT_DIR, fname), "w", encoding="utf-8") as f:
                         json.dump(det, f, ensure_ascii=False)
                     seen_games.add(gid)
                     new_games += 1
@@ -173,6 +219,7 @@ def main():
                             seen_players.add(o)
                             queue.append(o)
                     if new_games % 25 == 0:
+                        save_players(seen_players)   # 每25场也存一次状态，防意外
                         print("[progress] games=%d players_seen=%d queue=%d" % (new_games, len(seen_players), len(queue)), flush=True)
                 except Exception as e:
                     print("[err] gid=%s %s" % (gid, e), flush=True)

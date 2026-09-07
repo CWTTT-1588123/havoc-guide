@@ -61,3 +61,9 @@ _tmp*/
 # 版本切换备份与临时演练
 *_backup.*
 tmp/
+
+# 爬虫运行状态（按区/按worker的已见玩家与隐藏玩家缓存，属运行时数据）
+wegame-capture/players_seen_a*.json
+wegame-capture/hidden_a*.json
+wegame-capture/hidden.json
+wegame-capture/cooldown_test.txt
