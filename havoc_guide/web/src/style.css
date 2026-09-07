@@ -175,6 +175,10 @@
   .pc-prev { width:96px; height:96px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 3px var(--blue); }
   /* 收信箱（个人中心-我的账号）：未读角标 + 消息列表 */
   .pc-badge { display:inline-block; min-width:22px; height:22px; line-height:22px; padding:0 6px; margin-left:8px; border-radius:11px; background:var(--red); color:#fff; font-size:15px; font-weight:700; text-align:center; vertical-align:middle; }
+  /* 信封图标按钮（头像/名字/邮箱右边） */
+  .pc-mail { position:relative; display:inline-flex; align-items:center; justify-content:center; width:54px; height:54px; border-radius:14px; border:1px solid var(--line); background:var(--panel2); color:var(--sub); cursor:pointer; transition:.15s; flex:none; }
+  .pc-mail:hover, .pc-mail.on { color:var(--blue); border-color:var(--blue); background:rgba(74,168,255,.10); }
+  .pc-mail .mail-badge { position:absolute; top:-8px; right:-8px; margin-left:0; box-shadow:0 2px 6px rgba(0,0,0,.25); }
   .inbox-panel { max-width:760px; }
   .inbox-item { border:1px solid var(--line); border-radius:12px; padding:12px 16px; background:var(--panel2); cursor:pointer; transition:.15s; }
   .inbox-item + .inbox-item { margin-top:10px; }
@@ -185,6 +189,19 @@
   .inbox-title { font-size:22px; font-weight:700; color:var(--txt); }
   .inbox-time { margin-left:auto; color:var(--sub); font-size:18px; white-space:nowrap; }
   .inbox-body { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); color:var(--txt); font-size:20px; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
+  /* 官方公告弹窗（登录后未读公告自动弹出） */
+  .ann-ov { position:fixed; top:0; right:0; bottom:0; left:0; z-index:100400; background:rgba(10,15,28,.60); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .ann-card { position:relative; width:min(94vw, 660px); max-height:84vh; overflow:auto; background:#fff; border-radius:18px; padding:22px 26px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  html.dark .ann-card { background:#141c2e; }
+  .ann-pop-head { display:flex; align-items:center; gap:10px; color:var(--blue); font-size:26px; font-weight:700; margin-bottom:14px; }
+  .ann-pop-head svg { flex:none; }
+  .ann-pop-head .ann-x { margin-left:auto; border:0; background:transparent; color:var(--sub); font-size:24px; cursor:pointer; line-height:1; }
+  .ann-pop-head .ann-x:hover { color:var(--txt); }
+  .ann-pop-item { border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:var(--panel2); }
+  .ann-pop-item + .ann-pop-item { margin-top:12px; }
+  .ann-pop-title { font-size:22px; font-weight:700; color:var(--txt); }
+  .ann-pop-body { margin-top:8px; color:var(--txt); font-size:19px; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
+  .ann-pop-btns { display:flex; justify-content:center; margin-top:18px; }
   /* 成功动效 */
   .toast { position:fixed; top:80px; left:50%; transform:translate(-50%,-20px); background:rgba(20,28,48,.96); color:#5bd08b; border:1px solid rgba(91,210,139,.5); border-radius:12px; padding:12px 22px; font-size:24px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:.3s; z-index:100000; }
   .toast.show { opacity:1; transform:translate(-50%,0); }
@@ -547,10 +564,16 @@
     .pc-accbtns { margin-left:0; }
     .pc-btn { font-size:15px; padding:7px 12px; }
     .pc-badge { min-width:18px; height:18px; line-height:18px; padding:0 5px; margin-left:6px; font-size:12px; }
+    .pc-mail { width:44px; height:44px; }
+    .pc-mail svg { width:24px; height:24px; }
     .inbox-panel { max-width:100%; }
     .inbox-title { font-size:16px; }
     .inbox-time { font-size:13px; }
     .inbox-body { font-size:15px; }
+    .ann-card { padding:16px 14px; }
+    .ann-pop-head { font-size:20px; }
+    .ann-pop-title { font-size:16px; }
+    .ann-pop-body { font-size:14px; }
     .pc-bg { width:110px; height:70px; }
     .pc-pet { width:72px; }
     .pc-pet img { width:58px; height:58px; }

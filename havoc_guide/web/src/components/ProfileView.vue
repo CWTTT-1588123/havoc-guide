@@ -183,13 +183,19 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
           <div class="pc-accname">{{ u ? u.name : '' }}</div>
           <div class="pc-accsub">{{ contact }}</div>
         </div>
+        <button class="pc-mail" :class="{ on: form === 'inbox' }" title="收信箱" @click="form = form === 'inbox' ? '' : 'inbox'">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="5.5" width="19" height="13" rx="2.5"></rect>
+            <path d="M3.5 7.5l8.5 6 8.5-6"></path>
+          </svg>
+          <span v-if="unread > 0" class="pc-badge mail-badge">{{ unread > 99 ? '99+' : unread }}</span>
+        </button>
         <div class="pc-accbtns">
           <button class="pc-btn" @click="document.getElementById('pcFile').click()">更换头像</button>
           <button class="pc-btn" @click="form = form === 'pwd' ? '' : 'pwd'; pwdN=''; pwdN2=''">更改密码</button>
           <button class="pc-btn" @click="form = form === 'phone' ? '' : 'phone'; phoneV = u.phone || ''">{{ u && u.phone ? '修改手机号' : '绑定手机号' }}</button>
           <button class="pc-btn" @click="form = form === 'name' ? '' : 'name'; nameV=u.name">更改用户名</button>
           <button class="pc-btn" @click="form = form === 'email' ? '' : 'email'; emailV=''; codeV=''; codeSending=false">更换邮箱</button>
-          <button class="pc-btn" @click="form = form === 'inbox' ? '' : 'inbox'">收信箱<span v-if="unread > 0" class="pc-badge">{{ unread > 99 ? '99+' : unread }}</span></button>
           <button v-if="u && u.is_admin" class="pc-btn ok" @click="state.view = 'admin'">管理后台</button>
           <button class="pc-btn danger" @click="onLogout">退出登录</button>
         </div>
