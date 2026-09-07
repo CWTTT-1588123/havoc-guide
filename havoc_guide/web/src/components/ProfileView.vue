@@ -46,23 +46,29 @@ async function resetAiPrompt() {
   await saveAiPrompt()
 }
 
-// 收信箱（官方公告；未读显示角标，点开读完消失）
+// 收信箱（官方公告弹窗：左侧版本列表，右侧版本内容；未读角标，选中即读）
 const anns = ref([])
 const unread = ref(0)
-const openAnnId = ref(null)
+const inboxOpen = ref(false)
+const annSel = ref(null)
+const annCur = computed(() => anns.value.find(a => a.id === annSel.value) || null)
 async function loadAnns() {
   const r = await apiRoot('announcements')
   if (r.ok) { anns.value = r.announcements || []; unread.value = r.unread || 0 }
 }
-async function openAnn(a) {
-  if (openAnnId.value === a.id) { openAnnId.value = null; return }
-  openAnnId.value = a.id
+function openInbox() {
+  inboxOpen.value = true
+  const firstUnread = anns.value.find(a => !a.read)
+  annSel.value = (firstUnread || anns.value[0] || {}).id || null
+}
+function closeInbox() { inboxOpen.value = false }
+async function selectAnn(a) {
+  annSel.value = a.id
   if (!a.read) {
     const r = await apiRoot('announcements/' + a.id + '/read', {}, 'POST')
     if (r.ok) { a.read = true; unread.value = (r.unread != null ? r.unread : Math.max(0, unread.value - 1)) }
   }
 }
-function fmtAnnTs(ts) { return new Date((ts || 0) * 1000).toLocaleString() }
 
 function back() { goHome() }
 
@@ -183,7 +189,7 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
           <div class="pc-accname">{{ u ? u.name : '' }}</div>
           <div class="pc-accsub">{{ contact }}</div>
         </div>
-        <button class="pc-mail" :class="{ on: form === 'inbox' }" title="收信箱" @click="form = form === 'inbox' ? '' : 'inbox'">
+        <button class="pc-mail" :class="{ on: inboxOpen }" title="收信箱" @click="openInbox">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2.5" y="5.5" width="19" height="13" rx="2.5"></rect>
             <path d="M3.5 7.5l8.5 6 8.5-6"></path>
@@ -249,21 +255,6 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
           <div class="pc-form-t">预览头像</div>
           <img class="pc-prev" :src="avatarPreview">
           <div class="pc-form-btns"><button class="pc-btn ok" @click="uploadAvatar">确认上传</button><button class="pc-btn" @click="form=''">取消</button></div>
-        </div>
-      </div>
-      <div v-if="form === 'inbox'" class="pc-formwrap">
-        <div class="pc-form inbox-panel">
-          <div class="pc-form-t">收信箱<span v-if="unread > 0" class="pc-badge">{{ unread }}</span><span v-else class="muted"> · 全部已读</span></div>
-          <div class="pc-form-tip">官方公告会发送到这里，点击标题展开阅读，读完后未读提示自动消失。</div>
-          <div v-if="!anns.length" class="empty">暂无消息</div>
-          <div v-for="a in anns" :key="a.id" class="inbox-item" :class="{ unread: !a.read, open: openAnnId === a.id }" @click="openAnn(a)">
-            <div class="inbox-head">
-              <span v-if="!a.read" class="inbox-dot"></span>
-              <span class="inbox-title">{{ a.title }}</span>
-              <span class="inbox-time">{{ fmtAnnTs(a.created) }}</span>
-            </div>
-            <div v-if="openAnnId === a.id" class="inbox-body">{{ a.content }}</div>
-          </div>
         </div>
       </div>
     </div>
@@ -335,6 +326,34 @@ onMounted(() => { loadAiPrompt(); loadAnns() })
         <button class="pc-btn ok" @click="saveAiPrompt">保存人设</button>
         <button class="pc-btn" @click="resetAiPrompt">恢复默认</button>
         <span class="pc-okhint">{{ aiPrompt.length }}/1000</span>
+      </div>
+    </div>
+
+    <!-- 收信箱弹窗：左侧版本列表 + 右侧版本内容 -->
+    <div v-if="inboxOpen" class="ann-ov" @click.self="closeInbox">
+      <div class="ann-card ann-win">
+        <div class="ann-pop-head">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg>
+          <span>收信箱</span>
+          <button class="ann-x" @click="closeInbox">✕</button>
+        </div>
+        <div class="ann-win-body">
+          <div class="ann-sides">
+            <div v-if="!anns.length" class="empty">暂无消息</div>
+            <div v-for="a in anns" :key="a.id" class="ann-side-item" :class="{ on: annSel === a.id }" @click="selectAnn(a)">
+              <span v-if="!a.read" class="inbox-dot"></span>
+              <span class="ann-side-ver">{{ a.ver || '公告' }}</span>
+              <span class="ann-side-title">{{ a.title }}</span>
+            </div>
+          </div>
+          <div class="ann-main">
+            <template v-if="annCur">
+              <div class="ann-pop-title">{{ annCur.ver ? annCur.ver + ' · ' : '' }}{{ annCur.title }}</div>
+              <div class="ann-pop-body">{{ annCur.content }}</div>
+            </template>
+            <div v-else class="empty">选择左侧版本查看内容</div>
+          </div>
+        </div>
       </div>
     </div>
 

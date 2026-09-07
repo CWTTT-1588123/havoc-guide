@@ -8,6 +8,7 @@ const stats = ref(null)
 const anns = ref([])
 const annTitle = ref('')
 const annContent = ref('')
+const annVer = ref('')
 const tab = ref('users')   // 'users' | 'stats' | 'comments' | 'anns'
 const me = computed(() => state.auth && state.auth.user)
 const meOwner = computed(() => !!(me.value && me.value.owner))
@@ -60,8 +61,8 @@ async function delComment(c) {
 async function publishAnn() {
   const title = annTitle.value.trim(), content = annContent.value.trim()
   if (!title || !content) { alert('标题和内容都不能为空'); return }
-  const r = await adminApi('announcement', { title, content }, 'POST')
-  if (r.ok) { toast('公告已发布，全站用户收信箱可见'); annTitle.value = ''; annContent.value = ''; load() }
+  const r = await adminApi('announcement', { title, content, ver: annVer.value.trim() }, 'POST')
+  if (r.ok) { toast('公告已发布，全站用户收信箱可见'); annTitle.value = ''; annContent.value = ''; annVer.value = ''; load() }
   else { alert(r.error || '发布失败') }
 }
 async function delAnn(a) {
@@ -169,8 +170,11 @@ onMounted(load)
   <div v-if="tab === 'anns'" class="detail">
     <h3 class="sechead"><span>公告管理</span></h3>
     <div class="ann-form">
-      <div class="pc-form-tip">发布新公告后，全站所有登录用户的收信箱都会收到并显示未读角标。版本更新时把更新内容写在这里即可。</div>
-      <input v-model="annTitle" class="pc-form-in" maxlength="60" placeholder="公告标题（60字内）">
+      <div class="pc-form-tip">发布新公告后，全站所有登录用户的收信箱都会收到并显示未读角标。版本号会显示在用户收信箱左侧列表中，留空则自动使用当前站点版本。</div>
+      <div class="ann-verrow">
+        <input v-model="annVer" class="pc-form-in ann-ver-in" maxlength="20" placeholder="版本号（如 v1.4.0，留空=当前版本）">
+        <input v-model="annTitle" class="pc-form-in" maxlength="60" placeholder="公告标题（60字内）">
+      </div>
       <textarea v-model="annContent" class="pc-form-in ann-text" rows="6" maxlength="2000" placeholder="公告内容（2000字内），支持换行"></textarea>
       <div class="pc-form-btns"><button class="pc-btn ok" @click="publishAnn">发布公告</button></div>
     </div>
@@ -200,6 +204,8 @@ onMounted(load)
 .pv-cols h4 { margin:0 0 8px; font-size:22px; color:var(--txt); }
 .pv-note { font-size:16px; margin-top:10px; }
 .ann-form { display:flex; flex-direction:column; gap:12px; max-width:760px; margin-bottom:22px; }
+.ann-verrow { display:flex; gap:12px; flex-wrap:wrap; }
+.ann-ver-in { max-width:300px; }
 .ann-text { resize:vertical; line-height:1.6; }
 .ann-list { display:flex; flex-direction:column; gap:10px; }
 .ann-item { display:flex; align-items:center; gap:14px; background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px 16px; }

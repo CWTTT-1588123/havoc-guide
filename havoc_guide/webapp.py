@@ -621,10 +621,10 @@ def _init_db():
         conn.execute("""CREATE TABLE IF NOT EXISTS views (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ts INTEGER, view TEXT)""")
-        # 官方公告（收信箱；所有登录用户可见，按用户记录已读）
+        # 官方公告（收信箱；所有登录用户可见，按用户记录已读；ver=版本号，前端左侧版本列表）
         conn.execute("""CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY,
-            title TEXT, content TEXT, created INTEGER)""")
+            title TEXT, content TEXT, created INTEGER, ver TEXT DEFAULT '')""")
         # 老库迁移：新增 ai_prompt（自定义 AI 人设）/ read_anns（已读公告ID）列
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
         if "ai_prompt" not in cols:
@@ -700,14 +700,17 @@ def _save_anns():
         conn.execute("DELETE FROM announcements")
         for a in ANNS:
             conn.execute(
-                "INSERT INTO announcements (id,title,content,created) VALUES (?,?,?,?)",
-                (a["id"], a["title"], a["content"], a["created"]))
+                "INSERT INTO announcements (id,title,content,created,ver) VALUES (?,?,?,?,?)",
+                (a["id"], a["title"], a["content"], a["created"], a.get("ver", "")))
 
 
-# 首个公告：v1.3.2 更新说明（含上次版本 v1.3.1 内容回顾），空库时自动写入所有用户收信箱
-ANN_132_TITLE = "v1.3.2 更新公告｜全新收信箱，更多新功能等你发现"
-ANN_132_OLD_TITLE = "v1.3.2 更新公告｜收信箱上线，版本消息不再错过"  # 旧版文案（含后台/数据管理等内部信息），启动时自动下线替换
-SEED_ANN_132 = """【本次更新 v1.3.2】
+# 公告按版本拆分（v1.3.2 / v1.3.1 各一条）；旧版合并文案启动时自动替换为这两条
+ANN_OLD_TITLES = (
+    "v1.3.2 更新公告｜收信箱上线，版本消息不再错过",
+    "v1.3.2 更新公告｜全新收信箱，更多新功能等你发现",
+)
+ANN_132_TITLE = "收信箱上线，AI 助手可自定义"
+ANN_132_CONTENT = """【本次更新 v1.3.2】
 
 1. 收信箱上线：以后每次版本更新的消息都会发送到你的收信箱。进入个人中心，点击头像旁的信封图标即可查看，读完未读提示自动消失。
 
@@ -717,11 +720,15 @@ SEED_ANN_132 = """【本次更新 v1.3.2】
 
 4. 手机端体验优化：登录流程改为两步引导，操作更顺手。
 
-【上次更新 v1.3.1】
+——感谢每一位召唤师的支持！小海克斯会继续努力更新。"""
+ANN_131_TITLE = "支持更换登录邮箱"
+ANN_131_CONTENT = """【本次更新 v1.3.1】
 
 1. 个人中心支持更换登录邮箱：向新邮箱发送验证码，验证通过后新邮箱即成为登录账号。
 
-——感谢每一位召唤师的支持！小海克斯会继续努力更新。"""
+2. 修复未登录时点开聊天窗口的登录流程问题。
+
+——感谢每一位召唤师的支持！"""
 
 
 _init_db()
@@ -748,17 +755,17 @@ try:
     ANNS = _load_anns()
 except Exception:
     ANNS = []
-if not ANNS:  # 首次上线：自动写入 v1.3.2 更新公告
-    ANNS = [{"id": 1, "title": ANN_132_TITLE,
-             "content": SEED_ANN_132, "created": int(time.time())}]
+if not ANNS:  # 首次上线：自动写入 v1.3.2 / v1.3.1 两条公告
+    ANNS = [{"id": 1, "ver": "v1.3.2", "title": ANN_132_TITLE, "content": ANN_132_CONTENT, "created": int(time.time())},
+            {"id": 2, "ver": "v1.3.1", "title": ANN_131_TITLE, "content": ANN_131_CONTENT, "created": int(time.time()) - 3600}]
     _save_anns()
 else:
-    # 旧版公告文案（含后台/数据管理等内部信息）下线，换成纯用户向内容：删旧发新，全员重新未读
-    kept = [a for a in ANNS if a.get("title") != ANN_132_OLD_TITLE]
+    # 旧版合并文案（一条公告混装两个版本）下线，换成按版本拆分的两条，全员重新未读
+    kept = [a for a in ANNS if a.get("title") not in ANN_OLD_TITLES]
     if len(kept) != len(ANNS):
-        new_id = max([a.get("id", 0) for a in kept], default=0) + 1
-        kept.append({"id": new_id, "title": ANN_132_TITLE, "content": SEED_ANN_132,
-                     "created": int(time.time())})
+        base = max([a.get("id", 0) for a in kept], default=0)
+        kept += [{"id": base + 1, "ver": "v1.3.2", "title": ANN_132_TITLE, "content": ANN_132_CONTENT, "created": int(time.time())},
+                 {"id": base + 2, "ver": "v1.3.1", "title": ANN_131_TITLE, "content": ANN_131_CONTENT, "created": int(time.time()) - 3600}]
         ANNS = kept
         _save_anns()
 
@@ -1062,7 +1069,14 @@ async def api_avatar(request: Request):
         ext = "webp"
     avdir = os.path.join(STATIC_DIR, "avatars")
     os.makedirs(avdir, exist_ok=True)
-    fname = "%s.%s" % (u["id"], ext)
+    # 清理该用户旧头像（时间戳文件名：避免同扩展名被浏览器缓存显示旧图）
+    for old in os.listdir(avdir):
+        if old.startswith(u["id"] + "_"):
+            try:
+                os.remove(os.path.join(avdir, old))
+            except OSError:
+                pass
+    fname = "%s_%d.%s" % (u["id"], int(time.time()), ext)
     with open(os.path.join(avdir, fname), "wb") as f:
         f.write(raw)
     u["avatar"] = "/static/avatars/" + fname
@@ -1266,7 +1280,7 @@ async def api_announcements(request: Request):
     if not u:
         return JSONResponse({"ok": False, "error": "未登录"}, status_code=401)
     read = set(u.get("readAnns") or [])
-    items = [{"id": a["id"], "title": a["title"], "content": a["content"],
+    items = [{"id": a["id"], "ver": a.get("ver", ""), "title": a["title"], "content": a["content"],
               "created": a["created"], "read": a["id"] in read}
              for a in sorted(ANNS, key=lambda x: -(x.get("id") or 0))]
     return {"ok": True, "announcements": items,
@@ -1438,12 +1452,13 @@ async def api_admin_announcement_create(request: Request):
     d = await _body(request)
     title = str(d.get("title") or "").strip()
     content = str(d.get("content") or "").strip()
+    ver = str(d.get("ver") or "").strip() or SITE_VERSION
     if not title or not content:
         return JSONResponse({"ok": False, "error": "标题和内容不能为空"}, status_code=400)
     if len(title) > 60 or len(content) > 2000:
         return JSONResponse({"ok": False, "error": "标题最长60字，内容最长2000字"}, status_code=400)
     new_id = max([x.get("id", 0) for x in ANNS], default=0) + 1
-    ANNS.append({"id": new_id, "title": title, "content": content, "created": int(time.time())})
+    ANNS.append({"id": new_id, "ver": ver, "title": title, "content": content, "created": int(time.time())})
     _save_anns()
     return {"ok": True, "id": new_id}
 

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { state, loadAuth, openLogin, goHome, getJSON, applyPrefs, apiRoot, toast } from './store'
+import { state, loadAuth, openLogin, goHome, getJSON, applyPrefs, toast } from './store'
 import LoginModal from './components/LoginModal.vue'
 import AvatarMenu from './components/AvatarMenu.vue'
 import ProfileView from './components/ProfileView.vue'
@@ -101,7 +101,6 @@ onMounted(() => {
   loadAuth()
   applyPrefs()
   syncHeaderH()
-  checkAnnouncements()   // 已登录（记住登录态）→ 检查未读公告
   window.addEventListener('resize', syncHeaderH)
   getJSON('/api/site').then(d => { if (d) { if (d.game_version) ver.value = d.game_version; if (d.icp) icp.value = d.icp; if (d.police) police.value = d.police } }).catch(() => {})
   // 符文说明：电脑（有鼠标）→ 悬浮提示；手机（触摸）→ 点击居中弹窗
@@ -163,30 +162,6 @@ function trackView() {
   } catch (e) {}
 }
 
-// —— 官方公告弹窗：登录后若有未读公告，弹出展示；点「我知道了」全部标记已读 ——
-const annPop = ref(false)
-const popAnns = ref([])
-let annChecking = false
-async function checkAnnouncements() {
-  if (!state.auth || !state.auth.token || annChecking) return
-  annChecking = true
-  try {
-    const r = await apiRoot('announcements')
-    if (r.ok) {
-      const unreads = (r.announcements || []).filter(a => !a.read)
-      if (unreads.length) { popAnns.value = unreads; annPop.value = true }
-    }
-  } catch (e) {} finally { annChecking = false }
-}
-async function dismissAnnPop() {
-  const list = popAnns.value.slice()
-  annPop.value = false
-  for (const a of list) {
-    try { await apiRoot('announcements/' + a.id + '/read', {}, 'POST') } catch (e) {}
-  }
-  popAnns.value = []
-}
-
 // 视图变化 → 清悬停/登录弹层 + 记录历史（后退可用）+ 立即换气泡 + 访问打点
 watch(() => state.view, () => {
   hovered.value = false; state.avatarMenuOpen = false; state.loginPop = false
@@ -195,9 +170,6 @@ watch(() => state.view, () => {
   if (suppressPush) return
   history.pushState({ view: state.view, champId: state.champId, cat: state.cat }, '', routeUrl())
 })
-
-// 登录/登出 → 检查未读公告（登录成功立即弹窗）
-watch(() => state.auth && state.auth.token, tok => { if (tok) checkAnnouncements() })
 </script>
 
 <template>
@@ -249,24 +221,4 @@ watch(() => state.auth && state.auth.token, tok => { if (tok) checkAnnouncements
   <LoginModal v-if="state.loginOpen" />
   <Pet />
   <ChatBot v-if="state.chatOpen" />
-
-  <!-- 官方公告弹窗（登录后未读公告自动弹出） -->
-  <div v-if="annPop" class="ann-ov">
-    <div class="ann-card">
-      <div class="ann-pop-head">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M3.5 7.5l8.5 6 8.5-6"/></svg>
-        <span>官方消息</span>
-        <button class="ann-x" @click="dismissAnnPop">✕</button>
-      </div>
-      <div class="ann-pop-list">
-        <div v-for="a in popAnns" :key="a.id" class="ann-pop-item">
-          <div class="ann-pop-title">{{ a.title }}</div>
-          <div class="ann-pop-body">{{ a.content }}</div>
-        </div>
-      </div>
-      <div class="ann-pop-btns">
-        <button class="pc-btn ok" @click="dismissAnnPop">我知道了</button>
-      </div>
-    </div>
-  </div>
 </template>
