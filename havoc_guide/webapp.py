@@ -103,6 +103,7 @@ for _n, _o in ITEM_NICKS.items():
     NAME_ITEM_NICKS.setdefault(_o, []).append(_n)
 DRAGON_VER = os.environ.get("DRAGON_VER", _dragon_version())
 PATCH_VERSION = os.environ.get("PATCH_VERSION", "16.16")  # 当前LOL补丁版本，用于网站名标注
+SITE_VERSION = "v1.3.2"  # 站点功能版本（git tag 同步，/api/site 返回）
 
 app = FastAPI(title="海克斯大乱斗 攻略站")
 # 静态资源（桌面宠物/头像等）：把图片放进 static/ 即可经 /static/... 访问
@@ -144,8 +145,13 @@ def api_version():
 
 @app.get("/api/site")
 def api_site():
-    """站点信息：版本 + ICP 备案号（前端页脚展示）"""
-    return {"game_version": PATCH_VERSION, "icp": os.environ.get("ICP_NUMBER", "").strip()}
+    """站点信息：版本 + ICP/公安备案号（前端页脚展示）"""
+    return {
+        "game_version": PATCH_VERSION,
+        "site_version": SITE_VERSION,
+        "icp": os.environ.get("ICP_NUMBER", "").strip(),
+        "police": os.environ.get("POLICE_NUMBER", "").strip(),
+    }
 
 
 # ==================== SEO：robots / sitemap / 英雄预渲染页 ====================
@@ -283,7 +289,47 @@ def api_champion(cid: str):
     return JSONResponse(detail)
 
 
+# ---- 访问统计（前端每切换一次页面打点一次；管理员自己的浏览不计入）----
+@app.post("/api/pv")
+async def api_pv(request: Request):
+    d = await _body(request)
+    view = str(d.get("view", ""))[:32]
+    u = _auth_user(request)
+    if u and u.get("is_admin"):
+        return {"ok": True, "skipped": True}   # 管理员自己的浏览不计入
+    with _db() as conn:
+        conn.execute("INSERT INTO views (ts, view) VALUES (?,?)", (int(time.time()), view))
+    return {"ok": True}
+
+
 # ---- 每英雄评论区（共享，所有登录用户可见）----
+# 敏感词过滤表：与 webapp.py 同目录的 sensitive_words.txt（一行一词，# 注释，管理员可编辑）
+SENSITIVE_WORDS = []
+
+
+def _load_sensitive_words():
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sensitive_words.txt")
+    words = []
+    try:
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                words.append(line)
+    except Exception:
+        pass
+    return words
+
+
+SENSITIVE_WORDS = _load_sensitive_words()
+
+
+def _has_sensitive(text):
+    t = text.lower()
+    return any(w.lower() in t for w in SENSITIVE_WORDS)
+
+
 @app.get("/api/champion/{cid}/comments")
 def api_comments_get(cid: str):
     cs = [c for c in COMMENTS if c.get("champ") == cid]
@@ -302,6 +348,8 @@ async def api_comments_post(cid: str, request: Request):
         return JSONResponse({"ok": False, "error": "评论不能为空"}, status_code=400)
     if len(text) > 1000:
         text = text[:1000]
+    if _has_sensitive(text):
+        return JSONResponse({"ok": False, "error": "评论包含敏感词，请修改后再发"}, status_code=400)
     COMMENTS.append({"champ": cid, "uid": u["id"], "contact": u.get("contact", ""),
                      "name": u.get("name", ""), "text": text, "ts": int(time.time())})
     _save_comments()
@@ -320,6 +368,18 @@ CHAT_SYSTEM = (
 )
 CHAT_TONE_PRO = "当前说话风格：专业、沉稳、简洁，像资深分析师，用数据说话，不使用卖萌语气词。"
 CHAT_TONE_CUTE = "当前说话风格：活泼、可爱、俏皮，多用语气词和颜文字（如～、呀、✨、٩(ˊᗜˋ*)و），热情鼓励玩家。"
+
+
+def _chat_system(u, ctx, persona):
+    """系统提示词：玩家自定义了 AI 人设时优先用它（陪伴式聊天），否则用默认风格。"""
+    custom = (u.get("aiPrompt") or "").strip()
+    if custom:
+        return (CHAT_SYSTEM + "\n"
+                "【玩家为你自定义的人设/说话风格】这是玩家亲手为你写的设定，请把它当作你最重要的角色设定，"
+                "始终用这种风格陪伴玩家聊天，同时仍可回答游戏数据问题：\n" + custom +
+                "\n【今日真实数据】\n" + ctx)
+    tone = CHAT_TONE_CUTE if persona == "cute" else CHAT_TONE_PRO
+    return CHAT_SYSTEM + "\n" + tone + "\n【今日真实数据】\n" + ctx
 
 
 def _aug_name(aid):
@@ -437,8 +497,7 @@ async def api_chat(request: Request):
     if not msgs or not msgs[-1]["content"].strip():
         return JSONResponse({"ok": False, "error": "消息不能为空"}, status_code=400)
     ctx = _build_chat_context(msgs[-1]["content"])
-    tone = CHAT_TONE_CUTE if d.get("persona") == "cute" else CHAT_TONE_PRO
-    full = [{"role": "system", "content": CHAT_SYSTEM + "\n" + tone + "\n【今日真实数据】\n" + ctx}] + msgs
+    full = [{"role": "system", "content": _chat_system(u, ctx, d.get("persona"))}] + msgs
     try:
         reply = await _deepseek_reply(full)
     except Exception:
@@ -466,8 +525,7 @@ async def api_chat_stream(request: Request):
     if not msgs or not msgs[-1]["content"].strip():
         return JSONResponse({"ok": False, "error": "消息不能为空"}, status_code=400)
     ctx = _build_chat_context(msgs[-1]["content"])
-    tone = CHAT_TONE_CUTE if d.get("persona") == "cute" else CHAT_TONE_PRO
-    full = [{"role": "system", "content": CHAT_SYSTEM + "\n" + tone + "\n【今日真实数据】\n" + ctx}] + msgs
+    full = [{"role": "system", "content": _chat_system(u, ctx, d.get("persona"))}] + msgs
 
     async def gen():
         try:
@@ -559,6 +617,20 @@ def _init_db():
         conn.execute("""CREATE TABLE IF NOT EXISTS comments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             champ TEXT, uid TEXT, contact TEXT, name TEXT, text TEXT, ts INTEGER)""")
+        # 访问统计（每页浏览一条；管理员自己的浏览不计入）
+        conn.execute("""CREATE TABLE IF NOT EXISTS views (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts INTEGER, view TEXT)""")
+        # 官方公告（收信箱；所有登录用户可见，按用户记录已读）
+        conn.execute("""CREATE TABLE IF NOT EXISTS announcements (
+            id INTEGER PRIMARY KEY,
+            title TEXT, content TEXT, created INTEGER)""")
+        # 老库迁移：新增 ai_prompt（自定义 AI 人设）/ read_anns（已读公告ID）列
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+        if "ai_prompt" not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN ai_prompt TEXT DEFAULT ''")
+        if "read_anns" not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN read_anns TEXT DEFAULT '[]'")
 
 
 def _row_user(r):
@@ -567,6 +639,8 @@ def _row_user(r):
             "avatar": r["avatar"] or "", "is_admin": bool(r["is_admin"]), "created": r["created"] or 0,
             "tokens": json.loads(r["tokens"] or "[]"), "bg": r["bg"] or "", "bgImg": r["bgImg"] or "",
             "pets": json.loads(r["pets"] or "[]"), "theme": r["theme"] or "",
+            "aiPrompt": r["ai_prompt"] if "ai_prompt" in r.keys() else "",
+            "readAnns": json.loads(r["read_anns"] or "[]") if "read_anns" in r.keys() else [],
             "comments": json.loads(r["comments"] or "[]")}
 
 
@@ -581,13 +655,15 @@ def _save_users():
         conn.execute("DELETE FROM users")
         for u in USERS.values():
             conn.execute(
-                "INSERT INTO users (id,name,contact,phone,salt,phash,avatar,is_admin,created,tokens,bg,bgImg,pets,theme,comments)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO users (id,name,contact,phone,salt,phash,avatar,is_admin,created,tokens,bg,bgImg,pets,theme,ai_prompt,read_anns,comments)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (u["id"], u.get("name", ""), u.get("contact", ""), u.get("phone", ""),
                  u.get("salt", ""), u.get("phash", ""), u.get("avatar", ""),
                  1 if u.get("is_admin") else 0, u.get("created", 0),
                  json.dumps(u.get("tokens", [])), u.get("bg", ""), u.get("bgImg", ""),
-                 json.dumps(u.get("pets", [])), u.get("theme", ""), json.dumps(u.get("comments", []))))
+                 json.dumps(u.get("pets", [])), u.get("theme", ""), u.get("aiPrompt", ""),
+                 json.dumps(u.get("readAnns", [])),
+                 json.dumps(u.get("comments", []))))
 
 
 # —— 每英雄评论区（共享，存 SQLite）——
@@ -607,6 +683,51 @@ def _save_comments():
             conn.execute(
                 "INSERT INTO comments (champ,uid,contact,name,text,ts) VALUES (?,?,?,?,?,?)",
                 (c["champ"], c["uid"], c.get("contact", ""), c.get("name", ""), c["text"], c["ts"]))
+
+
+# —— 官方公告（收信箱，存 SQLite）——
+ANNS = []
+
+
+def _load_anns():
+    with _db() as conn:
+        rows = conn.execute("SELECT * FROM announcements ORDER BY id").fetchall()
+    return [dict(r) for r in rows]
+
+
+def _save_anns():
+    with _db() as conn:
+        conn.execute("DELETE FROM announcements")
+        for a in ANNS:
+            conn.execute(
+                "INSERT INTO announcements (id,title,content,created) VALUES (?,?,?,?)",
+                (a["id"], a["title"], a["content"], a["created"]))
+
+
+# 首个公告：v1.3.2 更新说明（含上次版本 v1.3.1 内容回顾），空库时自动写入所有用户收信箱
+SEED_ANN_132 = """【本次更新 v1.3.2】
+
+1. 收信箱上线：官方消息会统一发送到你的收信箱（个人中心-我的账号），未读时显示红色数字角标，点开读完自动消失，从此版本更新不再错过。
+
+2. 自定义 AI 聊天人设：个人中心新增「编辑 AI 助手」，你可以亲手写下希望小海克斯成为的样子——性格、口吻、对你的称呼、爱聊的话题……保存后立即生效，收获属于你的专属陪伴。
+
+3. 评论区升级：新增敏感词自动拦截，净化讨论环境；管理后台可实时查看并删除不良评论。
+
+4. 管理后台大改版：新增「访问统计」标签页（总浏览量/今日浏览/近14天趋势/页面分布，已自动排除管理员自身浏览）。
+
+5. 数据扩充：16.17 版本对局数据扩充至 50 万+ 条，全英雄胜率统计更准确。
+
+6. 合规上线：ICP 备案号与公安备案号正式展示在网站页脚。
+
+7. 手机端体验优化：登录流程改为两步引导（先提示再登录），操作更顺手。
+
+【上次更新 v1.3.1】
+
+1. 个人中心支持更换登录邮箱：向新邮箱发送验证码，验证通过后新邮箱即成为登录账号。
+
+2. 修复未登录时点开聊天窗口的登录流程问题。
+
+——感谢每一位召唤师的支持！小海克斯会继续努力更新。"""
 
 
 _init_db()
@@ -629,6 +750,14 @@ try:
     COMMENTS = _load_comments()
 except Exception:
     COMMENTS = []
+try:
+    ANNS = _load_anns()
+except Exception:
+    ANNS = []
+if not ANNS:  # 首次上线：自动写入 v1.3.2 更新公告
+    ANNS = [{"id": 1, "title": "v1.3.2 更新公告｜收信箱上线，版本消息不再错过",
+             "content": SEED_ANN_132, "created": int(time.time())}]
+    _save_anns()
 
 CODES = {}  # contact -> {code, exp}
 
@@ -1103,7 +1232,7 @@ async def api_email(request: Request):
 
 
 # ============ 用户偏好（存服务器，按账号同步）============
-PREF_KEYS = ("bg", "bgImg", "pets", "theme")
+PREF_KEYS = ("bg", "bgImg", "pets", "theme", "aiPrompt")
 
 
 @app.get("/api/auth/prefs")
@@ -1125,6 +1254,37 @@ async def api_prefs_set(request: Request):
             u[k] = d[k]
     _save_users()
     return {"ok": True, "prefs": {k: u.get(k, "") for k in PREF_KEYS}}
+
+
+# ============ 官方公告（收信箱，需登录）============
+@app.get("/api/announcements")
+async def api_announcements(request: Request):
+    u = _auth_user(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "未登录"}, status_code=401)
+    read = set(u.get("readAnns") or [])
+    items = [{"id": a["id"], "title": a["title"], "content": a["content"],
+              "created": a["created"], "read": a["id"] in read}
+             for a in sorted(ANNS, key=lambda x: -(x.get("id") or 0))]
+    return {"ok": True, "announcements": items,
+            "unread": sum(1 for x in items if not x["read"])}
+
+
+@app.post("/api/announcements/{aid}/read")
+async def api_announcement_read(request: Request, aid: str):
+    u = _auth_user(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "未登录"}, status_code=401)
+    a = next((x for x in ANNS if str(x.get("id")) == str(aid)), None)
+    if not a:
+        return JSONResponse({"ok": False, "error": "公告不存在"}, status_code=404)
+    read = set(u.get("readAnns") or [])
+    if a["id"] not in read:
+        read.add(a["id"])
+        u["readAnns"] = sorted(read)
+        _save_users()
+    unread = len([x for x in ANNS if x.get("id") not in read])
+    return {"ok": True, "unread": unread}
 
 
 # ============ 管理员后台 ============
@@ -1198,6 +1358,103 @@ async def api_admin_delete(request: Request, uid: str):
     USERS.pop(uid, None)
     _save_users()
     return {"ok": True}
+
+
+# ============ 评论管理（管理员：查看全部评论 + 删除）============
+def _champ_name(cid):
+    c = CHAMPS.get(str(cid), {}) or {}
+    return c.get("name") or ("英雄" + str(cid))
+
+
+@app.get("/api/admin/comments")
+async def api_admin_comments(request: Request):
+    u = _admin_required(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
+    out = []
+    for c in sorted(COMMENTS, key=lambda x: -(x.get("ts") or 0)):
+        out.append({
+            "id": c.get("id"),
+            "champ": c.get("champ", ""),
+            "champ_name": _champ_name(c.get("champ", "")),
+            "uid": c.get("uid", ""),
+            "name": c.get("name") or "玩家",
+            "contact": c.get("contact", ""),
+            "text": c.get("text", ""),
+            "ts": c.get("ts", 0),
+        })
+    return {"ok": True, "comments": out}
+
+
+@app.post("/api/admin/comment/{cid}/delete")
+async def api_admin_comment_delete(request: Request, cid: str):
+    global COMMENTS
+    u = _admin_required(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
+    before = len(COMMENTS)
+    COMMENTS = [c for c in COMMENTS if str(c.get("id")) != str(cid)]
+    _save_comments()
+    return {"ok": True, "deleted": before - len(COMMENTS)}
+
+
+# ============ 访问统计（管理后台展示；已排除管理员自己的浏览）============
+@app.get("/api/admin/stats")
+async def api_admin_stats(request: Request):
+    u = _admin_required(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
+    with _db() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM views").fetchone()[0]
+        today = conn.execute(
+            "SELECT COUNT(*) FROM views WHERE ts >= ?",
+            (int(time.time()) - int(time.time()) % 86400 - 8 * 3600,)).fetchone()[0]  # 北京时间当天0点
+        days = [{"day": r["d"], "count": r["n"]} for r in conn.execute(
+            "SELECT date(ts, 'unixepoch', '+8 hours') AS d, COUNT(*) AS n FROM views "
+            "GROUP BY d ORDER BY d DESC LIMIT 14").fetchall()]
+        by_view = [{"view": r["view"] or "其他", "count": r["n"]} for r in conn.execute(
+            "SELECT view, COUNT(*) AS n FROM views GROUP BY view ORDER BY n DESC").fetchall()]
+    days.reverse()
+    return {"ok": True, "total": total, "today": today, "days": days, "by_view": by_view}
+
+
+# ============ 公告管理（管理员：发布/删除，全站用户收信箱可见）============
+@app.get("/api/admin/announcements")
+async def api_admin_announcements(request: Request):
+    u = _admin_required(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
+    return {"ok": True, "announcements": sorted(ANNS, key=lambda x: -(x.get("id") or 0))}
+
+
+@app.post("/api/admin/announcement")
+async def api_admin_announcement_create(request: Request):
+    u = _admin_required(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
+    d = await _body(request)
+    title = str(d.get("title") or "").strip()
+    content = str(d.get("content") or "").strip()
+    if not title or not content:
+        return JSONResponse({"ok": False, "error": "标题和内容不能为空"}, status_code=400)
+    if len(title) > 60 or len(content) > 2000:
+        return JSONResponse({"ok": False, "error": "标题最长60字，内容最长2000字"}, status_code=400)
+    new_id = max([x.get("id", 0) for x in ANNS], default=0) + 1
+    ANNS.append({"id": new_id, "title": title, "content": content, "created": int(time.time())})
+    _save_anns()
+    return {"ok": True, "id": new_id}
+
+
+@app.post("/api/admin/announcement/{aid}/delete")
+async def api_admin_announcement_delete(request: Request, aid: str):
+    global ANNS
+    u = _admin_required(request)
+    if not u:
+        return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
+    before = len(ANNS)
+    ANNS = [x for x in ANNS if str(x.get("id")) != str(aid)]
+    _save_anns()
+    return {"ok": True, "deleted": before - len(ANNS)}
 
 
 # ============ 搜索引擎站长验证文件（百度/Google/Bing 等）============

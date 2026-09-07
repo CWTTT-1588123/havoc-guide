@@ -15,6 +15,7 @@ import ChatBot from './components/ChatBot.vue'
 
 const ver = ref('')
 const icp = ref('')
+const police = ref('')
 const hovered = ref(false)
 const avatar = computed(() =>
   (state.auth && state.auth.user && state.auth.user.avatar)
@@ -101,7 +102,7 @@ onMounted(() => {
   applyPrefs()
   syncHeaderH()
   window.addEventListener('resize', syncHeaderH)
-  getJSON('/api/site').then(d => { if (d) { if (d.game_version) ver.value = d.game_version; if (d.icp) icp.value = d.icp } }).catch(() => {})
+  getJSON('/api/site').then(d => { if (d) { if (d.game_version) ver.value = d.game_version; if (d.icp) icp.value = d.icp; if (d.police) police.value = d.police } }).catch(() => {})
   // 符文说明：电脑（有鼠标）→ 悬浮提示；手机（触摸）→ 点击居中弹窗
   hoverOK = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches
   tipEl = document.createElement('div'); tipEl.className = 'tt'; tipEl.style.display = 'none'; document.body.appendChild(tipEl)
@@ -139,6 +140,7 @@ onMounted(() => {
   // 首次进入：解析深链接（如 /#/champ/804）
   parseHash()
   history.replaceState({ view: state.view, champId: state.champId, cat: state.cat }, '', routeUrl())
+  trackView()   // 首次访问也打点一次
 })
 // 切换页面/点标题 → 立即换桌宠语录气泡
 function titleHome() {
@@ -146,10 +148,25 @@ function titleHome() {
   else { state.petTick++ }                 // 已在主页：直接触发一次
 }
 
-// 视图变化 → 清悬停/登录弹层 + 记录历史（后退可用）+ 立即换气泡
+// 访问统计打点：每次视图变化上报一次（管理员自己的浏览由后端排除）
+function trackView() {
+  try {
+    fetch('/api/pv', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(state.auth && state.auth.token ? { Authorization: 'Bearer ' + state.auth.token } : {}),
+      },
+      body: JSON.stringify({ view: state.view }),
+    }).catch(() => {})
+  } catch (e) {}
+}
+
+// 视图变化 → 清悬停/登录弹层 + 记录历史（后退可用）+ 立即换气泡 + 访问打点
 watch(() => state.view, () => {
   hovered.value = false; state.avatarMenuOpen = false; state.loginPop = false
   state.petTick++
+  trackView()
   if (suppressPush) return
   history.pushState({ view: state.view, champId: state.champId, cat: state.cat }, '', routeUrl())
 })
@@ -193,9 +210,14 @@ watch(() => state.view, () => {
     <p>本站为<b>非商业性</b>的个人学习/分享站点；英雄联盟及英雄、符文、装备等权利归 <b>Riot Games</b> 所有，数据仅供学习交流，不用于任何商业用途。</p>
     <p>部分图片（含 Q 版形象）来自网络，版权归原作者所有；<b>Q 版形象均来自「堆糖」</b>（<a href="https://www.duitang.com" target="_blank" rel="noopener">duitang.com</a>）。如涉及版权问题，请联系删除。</p>
     <p>联系邮箱：<a href="mailto:19162860223@163.com">19162860223@163.com</a>（版权问题 / 侵权删除请联系）</p>
+    <p v-if="icp || police" class="beian">
+      <span v-if="icp"><a href="https://beian.miit.gov.cn" target="_blank" rel="noopener">{{ icp }}</a></span>
+      <span v-if="icp && police">　|　</span>
+      <span v-if="police"><a href="https://www.beian.gov.cn" target="_blank" rel="noopener">{{ police }}</a></span>
+    </p>
   </footer>
 
-  <div class="verlabel" v-if="ver">游戏版本 {{ ver }}<span v-if="icp">　·　<a href="https://beian.miit.gov.cn" target="_blank" rel="noopener">{{ icp }}</a></span></div>
+  <div class="verlabel" v-if="ver">游戏版本 {{ ver }}</div>
   <LoginModal v-if="state.loginOpen" />
   <Pet />
   <ChatBot v-if="state.chatOpen" />

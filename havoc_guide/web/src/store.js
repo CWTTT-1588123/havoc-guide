@@ -137,6 +137,18 @@ export async function adminApi(path, body, method) {
   return r.json()
 }
 
+// —— 通用带登录态的 /api/ 请求（收信箱等非 auth/admin 前缀接口）——
+export async function apiRoot(path, body, method) {
+  const r = await fetch('/api/' + path, {
+    method: method || (body ? 'POST' : 'GET'),
+    headers: { 'Content-Type': 'application/json', ...(state.auth && state.auth.token ? { Authorization: 'Bearer ' + state.auth.token } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const data = await r.json().catch(() => ({}))
+  if (r.status === 401 && state.auth) { saveAuth(null) }
+  return data
+}
+
 export { updateAuthUser }
 
 // 轻量 toast

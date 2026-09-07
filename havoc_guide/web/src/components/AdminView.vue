@@ -3,15 +3,29 @@ import { ref, computed, onMounted } from 'vue'
 import { state, adminApi, goHome, toast } from '../store'
 
 const users = ref([])
+const comments = ref([])
+const stats = ref(null)
+const anns = ref([])
+const annTitle = ref('')
+const annContent = ref('')
+const tab = ref('users')   // 'users' | 'stats' | 'comments' | 'anns'
 const me = computed(() => state.auth && state.auth.user)
 const meOwner = computed(() => !!(me.value && me.value.owner))
 
 async function load() {
   const d = await adminApi('users')
   if (d.ok) { users.value = d.users } else { alert(d.error || '加载失败') }
+  const c = await adminApi('comments')
+  if (c.ok) { comments.value = c.comments } else { alert(c.error || '评论加载失败') }
+  const s = await adminApi('stats')
+  if (s.ok) { stats.value = s } else { alert(s.error || '统计加载失败') }
+  const a = await adminApi('announcements')
+  if (a.ok) { anns.value = a.announcements } else { alert(a.error || '公告加载失败') }
 }
 
 function back() { goHome() }
+
+function fmtTs(ts) { return new Date((ts || 0) * 1000).toLocaleString() }
 
 function roleBadge(u) {
   if (u.owner) return '<span class="q 黄金">主管理员</span>'
@@ -34,6 +48,26 @@ async function del(u) {
   if (!confirm('确定删除用户 ' + (u.name || u.contact) + '？')) return
   const r = await adminApi('delete/' + u.id, {}, 'POST')
   if (r.ok) { toast('已删除'); load() } else { alert(r.error || '删除失败') }
+}
+
+async function delComment(c) {
+  if (!confirm('确定删除该评论？\n\n' + c.name + '：' + c.text.slice(0, 50))) return
+  const r = await adminApi('comment/' + c.id + '/delete', {}, 'POST')
+  if (r.ok) { toast('评论已删除'); load() } else { alert(r.error || '删除失败') }
+}
+
+// —— 公告管理（发布后全站用户收信箱可见）——
+async function publishAnn() {
+  const title = annTitle.value.trim(), content = annContent.value.trim()
+  if (!title || !content) { alert('标题和内容都不能为空'); return }
+  const r = await adminApi('announcement', { title, content }, 'POST')
+  if (r.ok) { toast('公告已发布，全站用户收信箱可见'); annTitle.value = ''; annContent.value = ''; load() }
+  else { alert(r.error || '发布失败') }
+}
+async function delAnn(a) {
+  if (!confirm('确定删除公告「' + a.title + '」？')) return
+  const r = await adminApi('announcement/' + a.id + '/delete', {}, 'POST')
+  if (r.ok) { toast('公告已删除'); load() } else { alert(r.error || '删除失败') }
 }
 
 function actionsFor(u) {
@@ -65,10 +99,15 @@ onMounted(load)
 <template>
   <div class="toolbar">
     <button class="btn" @click="back">返回</button>
-    <h2>管理后台</h2>
-    <span class="pc-hello">共 {{ users.length }} 位用户</span>
   </div>
-  <div class="detail">
+  <div class="adm-tabs">
+    <button class="btn" :class="{ active: tab === 'users' }" @click="tab = 'users'">用户管理</button>
+    <button class="btn" :class="{ active: tab === 'stats' }" @click="tab = 'stats'">访问统计</button>
+    <button class="btn" :class="{ active: tab === 'comments' }" @click="tab = 'comments'">评论管理</button>
+    <button class="btn" :class="{ active: tab === 'anns' }" @click="tab = 'anns'">公告管理</button>
+  </div>
+
+  <div v-if="tab === 'users'" class="detail">
     <h3 class="sechead"><span>用户管理</span></h3>
     <table id="tbl">
       <thead><tr><th>用户</th><th>账号</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead>
@@ -83,4 +122,92 @@ onMounted(load)
       </tbody>
     </table>
   </div>
+
+  <div v-if="tab === 'stats'" class="detail">
+    <h3 class="sechead"><span>访问统计</span></h3>
+    <div v-if="stats" class="pv-box">
+      <div class="pv-big">
+        <div class="pv-card"><b>{{ stats.total }}</b><span>总浏览量</span></div>
+        <div class="pv-card"><b>{{ stats.today }}</b><span>今日浏览</span></div>
+      </div>
+      <div class="pv-cols">
+        <div>
+          <h4>近 14 天</h4>
+          <table id="tbl"><thead><tr><th>日期</th><th>浏览</th></tr></thead>
+            <tbody><tr v-for="d in stats.days" :key="d.day"><td>{{ d.day }}</td><td>{{ d.count }}</td></tr></tbody>
+          </table>
+        </div>
+        <div>
+          <h4>页面分布</h4>
+          <table id="tbl"><thead><tr><th>页面</th><th>浏览</th></tr></thead>
+            <tbody><tr v-for="v in stats.by_view" :key="v.view"><td>{{ v.view }}</td><td>{{ v.count }}</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="muted pv-note">* 已自动排除管理员自己的浏览记录</p>
+    </div>
+    <div v-else class="empty">统计加载中…</div>
+  </div>
+
+  <div v-if="tab === 'comments'" class="detail">
+    <h3 class="sechead"><span>评论管理</span></h3>
+    <div v-if="!comments.length" class="empty">暂无评论</div>
+    <table v-else id="tbl">
+      <thead><tr><th>时间</th><th>英雄</th><th>用户</th><th>内容</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr v-for="c in comments" :key="c.id">
+          <td>{{ fmtTs(c.ts) }}</td>
+          <td>{{ c.champ_name }}</td>
+          <td>{{ c.name }}<span class="muted" v-if="c.contact">（{{ c.contact }}）</span></td>
+          <td class="com-cell">{{ c.text }}</td>
+          <td><button class="pc-btn danger" @click="delComment(c)">删除</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div v-if="tab === 'anns'" class="detail">
+    <h3 class="sechead"><span>公告管理</span></h3>
+    <div class="ann-form">
+      <div class="pc-form-tip">发布新公告后，全站所有登录用户的收信箱都会收到并显示未读角标。版本更新时把更新内容写在这里即可。</div>
+      <input v-model="annTitle" class="pc-form-in" maxlength="60" placeholder="公告标题（60字内）">
+      <textarea v-model="annContent" class="pc-form-in ann-text" rows="6" maxlength="2000" placeholder="公告内容（2000字内），支持换行"></textarea>
+      <div class="pc-form-btns"><button class="pc-btn ok" @click="publishAnn">发布公告</button></div>
+    </div>
+    <div v-if="!anns.length" class="empty">暂无公告</div>
+    <div v-else class="ann-list">
+      <div v-for="a in anns" :key="a.id" class="ann-item">
+        <div class="ann-item-main">
+          <span class="ann-t">{{ a.title }}</span>
+          <span class="muted ann-time">{{ fmtTs(a.created) }}</span>
+        </div>
+        <button class="pc-btn danger" @click="delAnn(a)">删除</button>
+      </div>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.adm-tabs { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.com-cell { max-width:420px; white-space:pre-wrap; word-break:break-word; font-size:20px; }
+.pv-box { margin-bottom:8px; }
+.pv-big { display:flex; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
+.pv-card { background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:16px 28px; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.pv-card b { font-size:34px; color:var(--gold); }
+.pv-card span { font-size:19px; color:var(--sub); }
+.pv-cols { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+@media (max-width:768px){ .pv-cols { grid-template-columns:1fr; } }
+.pv-cols h4 { margin:0 0 8px; font-size:22px; color:var(--txt); }
+.pv-note { font-size:16px; margin-top:10px; }
+.ann-form { display:flex; flex-direction:column; gap:12px; max-width:760px; margin-bottom:22px; }
+.ann-text { resize:vertical; line-height:1.6; }
+.ann-list { display:flex; flex-direction:column; gap:10px; }
+.ann-item { display:flex; align-items:center; gap:14px; background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px 16px; }
+.ann-item-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.ann-t { font-size:21px; font-weight:700; color:var(--txt); }
+.ann-time { font-size:16px; }
+@media (max-width:768px){
+  .ann-item { flex-wrap:wrap; }
+  .ann-item-main { flex:1 1 100%; }
+}
+</style>

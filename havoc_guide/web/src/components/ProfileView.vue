@@ -1,7 +1,7 @@
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import {
-  state, loadPrefs, savePrefs, applyPrefs, apiAuth, logout, goHome, toast,
+  state, loadPrefs, savePrefs, applyPrefs, apiAuth, apiRoot, logout, goHome, toast,
   PET_IMGS, BG_PRESETS, DARK_PRESETS, setBg, setBgImg, clearBg, saveTheme, updateAuthUser,
 } from '../store'
 
@@ -31,6 +31,38 @@ const bgImg = ref('')
 const petSel = ref(((prefs.value && prefs.value.pets) || []).slice())
 // 主题
 const themeSel = ref((prefs.value && prefs.value.theme) || 'light')
+// AI 助手自定义人设（存服务器，聊天时后端读取）
+const aiPrompt = ref('')
+async function loadAiPrompt() {
+  const r = await apiAuth('prefs', {})
+  if (r.ok && r.prefs) aiPrompt.value = r.prefs.aiPrompt || ''
+}
+async function saveAiPrompt() {
+  const r = await apiAuth('prefs', { aiPrompt: aiPrompt.value })
+  if (r.ok) { toast('AI 人设已保存，去聊天试试吧') } else { alert(r.error || '保存失败') }
+}
+async function resetAiPrompt() {
+  aiPrompt.value = ''
+  await saveAiPrompt()
+}
+
+// 收信箱（官方公告；未读显示角标，点开读完消失）
+const anns = ref([])
+const unread = ref(0)
+const openAnnId = ref(null)
+async function loadAnns() {
+  const r = await apiRoot('announcements')
+  if (r.ok) { anns.value = r.announcements || []; unread.value = r.unread || 0 }
+}
+async function openAnn(a) {
+  if (openAnnId.value === a.id) { openAnnId.value = null; return }
+  openAnnId.value = a.id
+  if (!a.read) {
+    const r = await apiRoot('announcements/' + a.id + '/read', {}, 'POST')
+    if (r.ok) { a.read = true; unread.value = (r.unread != null ? r.unread : Math.max(0, unread.value - 1)) }
+  }
+}
+function fmtAnnTs(ts) { return new Date((ts || 0) * 1000).toLocaleString() }
 
 function back() { goHome() }
 
@@ -130,6 +162,8 @@ function pickTheme(t) { themeSel.value = t }
 function confirmTheme() { saveTheme(themeSel.value); refreshPrefs(); toast('主题已切换') }
 
 async function onLogout() { await logout() }
+
+onMounted(() => { loadAiPrompt(); loadAnns() })
 </script>
 
 <template>
@@ -155,6 +189,8 @@ async function onLogout() { await logout() }
           <button class="pc-btn" @click="form = form === 'phone' ? '' : 'phone'; phoneV = u.phone || ''">{{ u && u.phone ? '修改手机号' : '绑定手机号' }}</button>
           <button class="pc-btn" @click="form = form === 'name' ? '' : 'name'; nameV=u.name">更改用户名</button>
           <button class="pc-btn" @click="form = form === 'email' ? '' : 'email'; emailV=''; codeV=''; codeSending=false">更换邮箱</button>
+          <button class="pc-btn" @click="form = form === 'inbox' ? '' : 'inbox'">收信箱<span v-if="unread > 0" class="pc-badge">{{ unread > 99 ? '99+' : unread }}</span></button>
+          <button v-if="u && u.is_admin" class="pc-btn ok" @click="state.view = 'admin'">管理后台</button>
           <button class="pc-btn danger" @click="onLogout">退出登录</button>
         </div>
         <input id="pcFile" type="file" accept="image/*" hidden @change="pickAvatar">
@@ -207,6 +243,21 @@ async function onLogout() { await logout() }
           <div class="pc-form-t">预览头像</div>
           <img class="pc-prev" :src="avatarPreview">
           <div class="pc-form-btns"><button class="pc-btn ok" @click="uploadAvatar">确认上传</button><button class="pc-btn" @click="form=''">取消</button></div>
+        </div>
+      </div>
+      <div v-if="form === 'inbox'" class="pc-formwrap">
+        <div class="pc-form inbox-panel">
+          <div class="pc-form-t">收信箱<span v-if="unread > 0" class="pc-badge">{{ unread }}</span><span v-else class="muted"> · 全部已读</span></div>
+          <div class="pc-form-tip">官方公告会发送到这里，点击标题展开阅读，读完后未读提示自动消失。</div>
+          <div v-if="!anns.length" class="empty">暂无消息</div>
+          <div v-for="a in anns" :key="a.id" class="inbox-item" :class="{ unread: !a.read, open: openAnnId === a.id }" @click="openAnn(a)">
+            <div class="inbox-head">
+              <span v-if="!a.read" class="inbox-dot"></span>
+              <span class="inbox-title">{{ a.title }}</span>
+              <span class="inbox-time">{{ fmtAnnTs(a.created) }}</span>
+            </div>
+            <div v-if="openAnnId === a.id" class="inbox-body">{{ a.content }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -266,6 +317,19 @@ async function onLogout() { await logout() }
         <button class="pc-theme" :class="{ on: themeSel === 'dark' }" @click="pickTheme('dark')">深色</button>
       </div>
       <div class="pc-okrow"><button class="pc-btn ok" @click="confirmTheme">确定</button></div>
+    </div>
+
+    <!-- 编辑 AI 助手（自定义聊天人设） -->
+    <div class="pc-sec">
+      <h3>编辑 AI 助手</h3>
+      <div class="pc-form-tip">写下你希望「小海克斯」成为的样子——性格、口吻、对你的称呼、爱聊的话题……保存后立即生效，收获属于你的专属陪伴。</div>
+      <textarea v-model="aiPrompt" class="ai-prompt-in" rows="5" maxlength="1000"
+                placeholder="例如：你是一个温柔贴心的姐姐，叫我“宝贝”，说话轻声细语，喜欢听我分享日常，也会认真给我游戏建议，用「～」结尾……"></textarea>
+      <div class="pc-okrow">
+        <button class="pc-btn ok" @click="saveAiPrompt">保存人设</button>
+        <button class="pc-btn" @click="resetAiPrompt">恢复默认</button>
+        <span class="pc-okhint">{{ aiPrompt.length }}/1000</span>
+      </div>
     </div>
 
   </div>
