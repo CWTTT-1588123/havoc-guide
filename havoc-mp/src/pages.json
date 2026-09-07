@@ -1,0 +1,68 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": { "navigationBarTitleText": "海克斯大乱斗攻略站" }
+    },
+    {
+      "path": "pages/augments/augments",
+      "style": { "navigationBarTitleText": "所有符文" }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": { "navigationBarTitleText": "我的" }
+    },
+    {
+      "path": "pages/category/category",
+      "style": { "navigationBarTitleText": "英雄分类" }
+    },
+    {
+      "path": "pages/champ/champ",
+      "style": { "navigationBarTitleText": "英雄详情" }
+    },
+    {
+      "path": "pages/section/section",
+      "style": { "navigationBarTitleText": "更多内容" }
+    },
+    {
+      "path": "pages/login/login",
+      "style": { "navigationBarTitleText": "登录 / 注册" }
+    },
+    {
+      "path": "pages/about/about",
+      "style": { "navigationBarTitleText": "关于本站" }
+    }
+  ],
+  "tabBar": {
+    "color": "#8a97b8",
+    "selectedColor": "#3b8fe0",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "排行榜",
+        "iconPath": "static/tab_home.png",
+        "selectedIconPath": "static/tab_home_on.png"
+      },
+      {
+        "pagePath": "pages/augments/augments",
+        "text": "符文",
+        "iconPath": "static/tab_rune.png",
+        "selectedIconPath": "static/tab_rune_on.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "static/tab_mine.png",
+        "selectedIconPath": "static/tab_mine_on.png"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "海克斯大乱斗攻略站",
+    "navigationBarBackgroundColor": "#eaf4ff",
+    "backgroundColor": "#eaf4ff"
+  }
+}
