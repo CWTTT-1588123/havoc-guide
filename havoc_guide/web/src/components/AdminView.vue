@@ -38,12 +38,16 @@ async function setRole(u, val) {
   const r = await adminApi('user/' + u.id, { is_admin: val ? 1 : 0 })
   if (r.ok) { toast(val ? '已设为管理员' : '已降为普通'); load() } else { alert(r.error || '操作失败') }
 }
-async function resetPwd(u) {
-  const p = prompt('为 ' + (u.name || u.contact) + ' 设置新密码（至少6位）：')
-  if (p === null) return
+// 重置密码：手机浏览器不支持 window.prompt 弹输入框 → 改用站内弹窗
+const pwdU = ref(null)
+const pwdVal = ref('')
+function resetPwd(u) { pwdU.value = u; pwdVal.value = '' }
+async function confirmPwd() {
+  const p = pwdVal.value
   if (p.length < 6) { alert('密码至少6位'); return }
-  const r = await adminApi('user/' + u.id, { password: p })
-  if (r.ok) { toast('密码已重置') } else { alert(r.error || '重置失败') }
+  const r = await adminApi('user/' + pwdU.value.id, { password: p })
+  if (r.ok) { toast('密码已重置'); pwdU.value = null; pwdVal.value = ''; load() }
+  else { alert(r.error || '重置失败') }
 }
 async function del(u) {
   if (!confirm('确定删除用户 ' + (u.name || u.contact) + '？')) return
@@ -191,6 +195,22 @@ onMounted(load)
       </div>
     </div>
   </div>
+
+  <!-- 重置密码弹窗（替代 prompt，手机可用） -->
+  <div v-if="pwdU" class="ann-ov" @click.self="pwdU = null">
+    <div class="ann-card pwd-card">
+      <div class="ann-pop-head">
+        <span>重置密码</span>
+        <button class="ann-x" @click="pwdU = null">✕</button>
+      </div>
+      <div class="pc-form-tip pwd-tip">为 <b>{{ pwdU.name || pwdU.contact }}</b> 设置新密码（至少6位）</div>
+      <input v-model="pwdVal" class="pc-form-in" type="password" placeholder="输入新密码（至少6位）">
+      <div class="ann-pop-btns">
+        <button class="pc-btn ok" @click="confirmPwd">确定重置</button>
+        <button class="pc-btn" @click="pwdU = null">取消</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -214,8 +234,14 @@ onMounted(load)
 .ann-item-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
 .ann-t { font-size:21px; font-weight:700; color:var(--txt); }
 .ann-time { font-size:16px; }
+.pwd-card { width:min(94vw, 460px); }
+.pwd-tip { margin-bottom:12px; }
+.pwd-tip b { color:var(--txt); }
 @media (max-width:768px){
   .ann-item { flex-wrap:wrap; }
   .ann-item-main { flex:1 1 100%; }
+  /* 手机：公告版本号+标题改为上下堆叠，各占满一行不再溢出 */
+  .ann-verrow { flex-direction:column; }
+  .ann-ver-in { max-width:100%; width:100%; }
 }
 </style>
