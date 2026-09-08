@@ -292,17 +292,20 @@ def api_champion(cid: str):
 # ---- 访问统计（前端每切换一次页面打点一次；管理员自己的浏览不计入）----
 @app.post("/api/pv")
 async def api_pv(request: Request):
-    d = await _body(request)
-    view = str(d.get("view", ""))[:32]
-    u = _auth_user(request)
-    if u and u.get("is_admin"):
-        return {"ok": True, "skipped": True}   # 管理员自己的浏览不计入（需该设备已登录）
-    ua = (request.headers.get("user-agent") or "").lower()
-    mobile = 1 if re.search(r"android|iphone|ipad|ipod|mobile|micromessenger|wechat", ua) else 0
-    with _db() as conn:
-        conn.execute("INSERT INTO views (ts, view, mobile) VALUES (?,?,?)",
-                     (int(time.time()), view, mobile))
-    return {"ok": True}
+    try:
+        d = await _body(request)
+        view = str(d.get("view", ""))[:32]
+        u = _auth_user(request)
+        if u and u.get("is_admin"):
+            return {"ok": True, "skipped": True}   # 管理员自己的浏览不计入（需该设备已登录）
+        ua = (request.headers.get("user-agent") or "").lower()
+        mobile = 1 if re.search(r"android|iphone|ipad|ipod|mobile|micromessenger|wechat", ua) else 0
+        with _db() as conn:
+            conn.execute("INSERT INTO views (ts, view, mobile) VALUES (?,?,?)",
+                         (int(time.time()), view, mobile))
+        return {"ok": True}
+    except Exception:
+        return {"ok": True}   # 统计失败绝不影响正常访问
 
 
 # ---- 每英雄评论区（共享，所有登录用户可见）----

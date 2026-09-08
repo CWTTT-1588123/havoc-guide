@@ -148,9 +148,10 @@ function titleHome() {
   else { state.petTick++ }                 // 已在主页：直接触发一次
 }
 
-// 访问统计打点：每次视图变化上报一次（管理员自己的浏览由后端排除）
+// 访问统计打点：每次视图变化上报一次（管理员自己的浏览不计入——前端直接跳过，后端再兜底校验）
 function trackView() {
   try {
+    if (state.auth && state.auth.user && state.auth.user.is_admin) return
     fetch('/api/pv', {
       method: 'POST',
       headers: {
