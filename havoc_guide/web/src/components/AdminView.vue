@@ -130,6 +130,8 @@ onMounted(load)
       <div class="pv-big">
         <div class="pv-card"><b>{{ stats.total }}</b><span>总浏览量</span></div>
         <div class="pv-card"><b>{{ stats.today }}</b><span>今日浏览</span></div>
+        <div class="pv-card"><b>{{ stats.desktop }}</b><span>桌面浏览（今日 {{ stats.today_desktop }}）</span></div>
+        <div class="pv-card"><b>{{ stats.mobile }}</b><span>手机浏览（今日 {{ stats.today_mobile }}）</span></div>
       </div>
       <div class="pv-cols">
         <div>
@@ -145,7 +147,7 @@ onMounted(load)
           </table>
         </div>
       </div>
-      <p class="muted pv-note">* 已自动排除管理员自己的浏览记录</p>
+      <p class="muted pv-note">* 管理员已登录的设备浏览自动排除；未登录设备（如未登录的手机）仍会正常计入——手机看站时登录一下管理员账号即可不计入。</p>
     </div>
     <div v-else class="empty">统计加载中…</div>
   </div>

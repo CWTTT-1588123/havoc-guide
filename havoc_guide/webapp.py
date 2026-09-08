@@ -296,9 +296,12 @@ async def api_pv(request: Request):
     view = str(d.get("view", ""))[:32]
     u = _auth_user(request)
     if u and u.get("is_admin"):
-        return {"ok": True, "skipped": True}   # 管理员自己的浏览不计入
+        return {"ok": True, "skipped": True}   # 管理员自己的浏览不计入（需该设备已登录）
+    ua = (request.headers.get("user-agent") or "").lower()
+    mobile = 1 if re.search(r"android|iphone|ipad|ipod|mobile|micromessenger|wechat", ua) else 0
     with _db() as conn:
-        conn.execute("INSERT INTO views (ts, view) VALUES (?,?)", (int(time.time()), view))
+        conn.execute("INSERT INTO views (ts, view, mobile) VALUES (?,?,?)",
+                     (int(time.time()), view, mobile))
     return {"ok": True}
 
 
@@ -617,10 +620,14 @@ def _init_db():
         conn.execute("""CREATE TABLE IF NOT EXISTS comments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             champ TEXT, uid TEXT, contact TEXT, name TEXT, text TEXT, ts INTEGER)""")
-        # 访问统计（每页浏览一条；管理员自己的浏览不计入）
+        # 访问统计（每页浏览一条；管理员自己的浏览不计入；mobile=1 手机端）
         conn.execute("""CREATE TABLE IF NOT EXISTS views (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ts INTEGER, view TEXT)""")
+            ts INTEGER, view TEXT, mobile INTEGER DEFAULT 0)""")
+        # 老库迁移：views 增加 mobile（设备类型）列
+        cols_v = [r["name"] for r in conn.execute("PRAGMA table_info(views)").fetchall()]
+        if "mobile" not in cols_v:
+            conn.execute("ALTER TABLE views ADD COLUMN mobile INTEGER DEFAULT 0")
         # 官方公告（收信箱；所有登录用户可见，按用户记录已读；ver=版本号，前端左侧版本列表）
         conn.execute("""CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY,
@@ -1430,17 +1437,26 @@ async def api_admin_stats(request: Request):
     if not u:
         return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
     with _db() as conn:
+        day_start = int(time.time()) - int(time.time()) % 86400 - 8 * 3600  # 北京时间当天0点
         total = conn.execute("SELECT COUNT(*) FROM views").fetchone()[0]
         today = conn.execute(
-            "SELECT COUNT(*) FROM views WHERE ts >= ?",
-            (int(time.time()) - int(time.time()) % 86400 - 8 * 3600,)).fetchone()[0]  # 北京时间当天0点
+            "SELECT COUNT(*) FROM views WHERE ts >= ?", (day_start,)).fetchone()[0]
+        desktop = conn.execute("SELECT COUNT(*) FROM views WHERE mobile = 0").fetchone()[0]
+        mobile = conn.execute("SELECT COUNT(*) FROM views WHERE mobile = 1").fetchone()[0]
+        today_desktop = conn.execute(
+            "SELECT COUNT(*) FROM views WHERE mobile = 0 AND ts >= ?", (day_start,)).fetchone()[0]
+        today_mobile = conn.execute(
+            "SELECT COUNT(*) FROM views WHERE mobile = 1 AND ts >= ?", (day_start,)).fetchone()[0]
         days = [{"day": r["d"], "count": r["n"]} for r in conn.execute(
             "SELECT date(ts, 'unixepoch', '+8 hours') AS d, COUNT(*) AS n FROM views "
             "GROUP BY d ORDER BY d DESC LIMIT 14").fetchall()]
         by_view = [{"view": r["view"] or "其他", "count": r["n"]} for r in conn.execute(
             "SELECT view, COUNT(*) AS n FROM views GROUP BY view ORDER BY n DESC").fetchall()]
     days.reverse()
-    return {"ok": True, "total": total, "today": today, "days": days, "by_view": by_view}
+    return {"ok": True, "total": total, "today": today,
+            "desktop": desktop, "mobile": mobile,
+            "today_desktop": today_desktop, "today_mobile": today_mobile,
+            "days": days, "by_view": by_view}
 
 
 # ============ 公告管理（管理员：发布/删除，全站用户收信箱可见）============
