@@ -237,11 +237,13 @@ onMounted(load)
 .pwd-card { width:min(94vw, 460px); }
 .pwd-tip { margin-bottom:12px; }
 .pwd-tip b { color:var(--txt); }
+.pwd-card .pc-form-in { width:100%; }
 @media (max-width:768px){
   .ann-item { flex-wrap:wrap; }
   .ann-item-main { flex:1 1 100%; }
   /* 手机：公告版本号+标题改为上下堆叠，各占满一行不再溢出 */
   .ann-verrow { flex-direction:column; }
   .ann-ver-in { max-width:100%; width:100%; }
+  .ann-verrow .pc-form-in { width:100%; }
 }
 </style>

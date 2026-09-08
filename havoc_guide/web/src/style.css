@@ -193,7 +193,7 @@
   .inbox-dot { flex:none; width:10px; height:10px; border-radius:50%; background:var(--red); box-shadow:0 0 0 3px rgba(224,106,106,.20); }
   /* 官方公告弹窗（登录后未读公告自动弹出） */
   .ann-ov { position:fixed; top:0; right:0; bottom:0; left:0; z-index:100400; background:rgba(10,15,28,.60); display:flex; align-items:center; justify-content:center; padding:16px; }
-  .ann-card { position:relative; width:min(94vw, 660px); max-height:84vh; overflow:auto; background:#fff; border-radius:18px; padding:22px 26px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  .ann-card { position:relative; width:min(94vw, 660px); max-height:84vh; overflow-y:auto; overflow-x:hidden; background:#fff; border-radius:18px; padding:22px 26px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
   html.dark .ann-card { background:#141c2e; }
   .ann-pop-head { display:flex; align-items:center; gap:10px; color:var(--blue); font-size:26px; font-weight:700; margin-bottom:14px; }
   .ann-pop-head svg { flex:none; }
