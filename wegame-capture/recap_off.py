@@ -1,4 +1,4 @@
-r"""一键重抓凭证 · 第二步：清理环境 + 找新凭证 + 验证 + 自动拉起爬虫（艾欧尼亚双线 + 监视器）。
+r"""一键重抓凭证 · 第二步：清理环境 + 找新凭证 + 验证三区（爬虫由 AI 会话用托管后台任务拉起）。
 
 用法（在你自己打开的 PowerShell 里跑）：
     & "E:\Deepseek Harness\wegame-capture\.venv\Scripts\python.exe" "E:\Deepseek Harness\wegame-capture\recap_off.py"
@@ -21,8 +21,6 @@ MARKER = os.path.join(BASE, ".mitmproxy", "last_req_detail.txt")
 CAP = os.path.join(BASE, "captured")
 URL = "https://www.wegame.com.cn/api/v1/wegame.pallas.game.LolBattle/GetBattleList"
 PROXY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-
-DETACH = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
 
 
 def set_proxy(enable):
@@ -84,29 +82,9 @@ def validate(path):
     return ok, desc
 
 
-def spawn(script, log, env_extra):
-    env = os.environ.copy()
-    env.update({
-        "PATCH_VERSION": "16.17",
-        "REQ_FILE": env_extra["REQ_FILE"],
-        "SEED_FROM_GAMES": "0",
-        "MAX_PAGES_PER_PLAYER": "30",
-        "DELAY": "0.3",
-        "MAX_GAMES": "50000",
-        "MAX_PLAYERS": "100000",
-        "AREA": env_extra["AREA"],
-        "WORKER": env_extra.get("WORKER", ""),
-    })
-    with open(log, "w", encoding="utf-8") as fout:
-        subprocess.Popen([VENV_PY, os.path.join(BASE, script)], cwd=BASE,
-                         env=env, stdout=fout, stderr=subprocess.STDOUT,
-                         creationflags=DETACH)
-    print("    已拉起:", script, "->", os.path.basename(log))
-
-
 def main():
     # 1. 清理环境
-    kill_mit()
+    kill_mitm()
     set_proxy(False)
     subprocess.run(["certutil", "-user", "-delstore", "Root", "mitmproxy"], capture_output=True)
     print("[2/5] 系统代理已关闭、mitmproxy 证书已删除")
@@ -142,17 +120,15 @@ def main():
         print("    ❌ 凭证不可用：8025009=过期(重点一次对局重抓)；8000022=滑块(去客户端过滑块后重点)")
         sys.exit(1)
 
-    # 4. 自动拉起爬虫：艾欧尼亚双线 + 监视器
-    print("[5/5] 凭证有效，自动拉起爬虫（艾欧尼亚 worker1/worker2）")
+    # 4. 验证通过后不在这里拉起爬虫（分离子进程在用户环境会被回收，见 08_常见错误）；
+    #    改为输出指引，由 AI 会话用托管后台任务拉起双线。
     req = "captured\\" + newest
-    spawn("bfscrawl.py", os.path.join(BASE, "crawl_a1_w1.log"), {"REQ_FILE": req, "AREA": "1", "WORKER": "1"})
-    spawn("bfscrawl.py", os.path.join(BASE, "crawl_a1_w2.log"), {"REQ_FILE": req, "AREA": "1", "WORKER": "2"})
-    with open(os.path.join(BASE, "watch.log"), "w", encoding="utf-8") as fout:
-        subprocess.Popen([VENV_PY, os.path.join(BASE, "watch_crawl.py")], cwd=BASE,
-                         stdout=fout, stderr=subprocess.STDOUT, creationflags=DETACH)
-    print("    已拉起: watch_crawl.py 监视器 -> watch.log")
+    print("[5/5] 凭证有效，新凭证:", newest)
+    print("    爬虫由 AI 会话用托管后台任务拉起（本脚本不再自动拉，分离进程会被回收）。")
+    print("    请把下面这行参数发给 AI：")
+    print("    REQ_FILE=%s" % req)
     print()
-    print("✅ 完成。爬虫日志: crawl_a1_w1.log / crawl_a1_w2.log；滑块/过期/完成会弹窗提醒")
+    print("✅ 完成。凭证已就绪；AI 会用: AREA=1 双线(WORKER=1/2) + PATCH_VERSION=16.17 + DELAY=0.3 拉起爬虫。")
 
 
 if __name__ == "__main__":
