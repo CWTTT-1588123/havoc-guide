@@ -20,9 +20,10 @@ function singleRow(a, i) {
   const rk = (i ?? 0) + 1
   return `<div class="singlecard hasicon" data-name="${esc(a.name)}"><span class="srank${rk <= 3 ? ' sr' + rk : ''}">${rk}</span>${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${esc(a.name)}${a.quality ? `<span class="q ${esc(a.quality)}">${esc(a.quality)}</span>` : ''}</div><div class="swr">${(a.wr * 100).toFixed(1)}%</div><div class="snum">${a.games}场</div></div>`
 }
-function comboRow(c) {
+function comboRow(c, base) {
   const pct = c.est ?? c.wilson ?? c.wr
-  return `<div class="itemrow"><div class="l">${(c.augment_meta || []).map(m => augChip(m.name, m.quality, m.icon)).join('')} <span class="num num-desk">${c.games}场</span></div><div class="r"><span class="winrate">${(pct * 100).toFixed(1)}%</span> <span class="num num-mob">${c.games}场</span></div></div>`
+  const diff = pct - (base ?? pct)
+  return `<div class="itemrow"><div class="l">${(c.augment_meta || []).map(m => augChip(m.name, m.quality, m.icon)).join('')} <span class="num num-desk">${c.games}场</span></div><div class="r"><span class="winrate">${(pct * 100).toFixed(1)}%</span> <span class="pct">${diff >= 0 ? '▲' : '▼'}${Math.abs(diff * 100).toFixed(1)}%</span> <span class="num num-mob">${c.games}场</span></div></div>`
 }
 function synergyRow(s) {
   return `<div class="itemrow"><div class="l">${augChip(s.aname, s.aquality, s.aicon)}+${augChip(s.bname, s.bquality, s.bicon)} <span class="num">${s.games}场</span></div><div class="r"><span class="winrate">${(s.wr * 100).toFixed(1)}%</span> <span class="pct">${s.lift > 0 ? '▲' : '▼'}${Math.abs(s.lift * 100).toFixed(1)}%</span></div></div>`
@@ -51,8 +52,8 @@ const sects = computed(() => {
     out.push({ id: 'sec-augments', key: 'augments', title: '最优单个符文', caption: '该英雄带这个符文胜率最高（按品质分档）', html: qualityBlocks(x, false), hasMore: x.augments_by_quality.some(g => g.items.length > 5) })
   }
   if (x.combos && x.combos.length) {
-    const rows = x.combos.map(comboRow)
-    out.push({ id: 'sec-combos', key: 'combos', title: '最优符文组合', caption: '这三个符文一起带的胜率（稳健估计，已按样本量收缩）', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
+    const rows = x.combos.map(c => comboRow(c, x.overall && x.overall.wr))
+    out.push({ id: 'sec-combos', key: 'combos', title: '最优符文组合', caption: '这三个符文一起带的胜率，比该英雄平均▲高/▼低', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
   }
   if (x.synergy && x.synergy.length) {
     const rows = x.synergy.map(synergyRow)
