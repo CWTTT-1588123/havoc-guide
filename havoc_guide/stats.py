@@ -2,12 +2,13 @@
 stats.py —— 从 records.jsonl 计算各项胜率统计，输出 processed/stats.json。
 口径：
 - 单符文胜率：WR(R|X) = 含R的对局中胜率；用 Wilson 下界排序（置信度+样本量），并标注样本量。
-- 组合胜率：精确符文集合胜率（样本少则靠协同兜底）。
+- 组合胜率：任意 3 符文子集的胜率（一局贡献 C(n,3) 个子集样本；≥20场收录，不足依次放宽到 10/5 场）；按"贝叶斯收缩+Wilson 下界"排序。
 - 协同：WR(A&B) 相对该英雄基础胜率的增益（lift）。
 - 对位：需要 champion_tags.json（可填），算 WR(R|X, 敌方含某标签) - WR(R|X, 全部)。
 - 出装：该英雄最常用的装备组合 + 胜率。
 """
 import collections
+import itertools
 import json
 import os
 
@@ -121,10 +122,11 @@ def main():
             aug_global[a][1] += 1
             per_champ_aug[cid][a][0] += 1 if win else 0
             per_champ_aug[cid][a][1] += 1
-        # 组合（精确集合，只统计 ≥2 个符文的"真组合"，单个符文不算组合）
-        if len(augs_r) >= 2:
-            per_champ_combo[cid][tuple(augs_r)][0] += 1 if win else 0
-            per_champ_combo[cid][tuple(augs_r)][1] += 1
+        # 组合（任意 3 符文子集）：一局贡献 C(n,3) 个子集组合，样本量远大于"整套符文"精确匹配
+        if len(augs_r) >= 3:
+            for combo in itertools.combinations(augs_r, 3):
+                per_champ_combo[cid][combo][0] += 1 if win else 0
+                per_champ_combo[cid][combo][1] += 1
         # 协同（两两）
         for i in range(len(augs_r)):
             for j in range(i + 1, len(augs_r)):
@@ -181,23 +183,21 @@ def main():
                 "wr": round(aw / ag, 4), "wilson": round(shrink(aw, ag, base), 4),
             })
         augs_rec.sort(key=lambda x: (-x["wilson"], -x["games"]))
-        # 组合（至少保留一个；≥2场收录，否则取最优1个）
-        combos = []
+        # 组合（任意 3 符文子集；≥20 场收录，不足依次放宽到 10/5 场，最多 20 条）
         todo = []
         for combo, (cw, cg) in per_champ_combo[cid].items():
             if any(is_random_aug(x) for x in combo):
                 continue
             todo.append({"combo": combo, "cw": cw, "cg": cg, "score": shrink(cw, cg, base)})
         todo.sort(key=lambda x: (-x["score"], -x["cg"]))
-        for it in todo:
-            if it["cg"] >= 2:
-                combos.append({"augments": [str(x) for x in it["combo"]], "wins": it["cw"], "games": it["cg"],
-                               "wr": round(it["cw"] / it["cg"], 4), "wilson": round(it["score"], 4)})
-        if not combos and todo:  # 至少保留最优的一个
-            it = todo[0]
-            combos.append({"augments": [str(x) for x in it["combo"]], "wins": it["cw"], "games": it["cg"],
-                           "wr": round(it["cw"] / it["cg"], 4), "wilson": round(it["score"], 4)})
-        combos = combos[:20]
+        combos = []
+        for min_cg in (20, 10, 5):
+            picked = [it for it in todo if it["cg"] >= min_cg]
+            if picked:
+                for it in picked[:20]:
+                    combos.append({"augments": [str(x) for x in it["combo"]], "wins": it["cw"], "games": it["cg"],
+                                   "wr": round(it["cw"] / it["cg"], 4), "wilson": round(it["score"], 4)})
+                break
         # 协同
         synergy = []
         for pair, (sw, sg) in per_champ_pair[cid].items():

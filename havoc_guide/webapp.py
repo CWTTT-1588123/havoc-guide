@@ -424,7 +424,7 @@ def _build_chat_context(user_text):
         combos = (d.get("combos") or [])[:3]
         if combos:
             parts.append("最优符文组合：" + "；".join(
-                "+".join(_aug_name(x) for x in (c.get("augments") or [])) + " 胜率%.1f%%" % ((c.get("wr") or 0) * 100) for c in combos))
+                "+".join(_aug_name(x) for x in (c.get("augments") or [])) + " 胜率%.1f%%(%d场)" % ((c.get("wilson") or 0) * 100, c.get("games") or 0) for c in combos))
         builds = (d.get("builds") or [])[:3]
         if builds:
             parts.append("核心出装：" + "；".join(
