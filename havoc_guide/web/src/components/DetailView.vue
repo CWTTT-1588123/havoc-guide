@@ -21,7 +21,8 @@ function singleRow(a, i) {
   return `<div class="singlecard hasicon" data-name="${esc(a.name)}"><span class="srank${rk <= 3 ? ' sr' + rk : ''}">${rk}</span>${a.icon ? `<img class="sicon" src="${a.icon}" onerror="this.style.display='none'">` : '<span class="sicon ph"></span>'}<div class="sname">${esc(a.name)}${a.quality ? `<span class="q ${esc(a.quality)}">${esc(a.quality)}</span>` : ''}</div><div class="swr">${(a.wr * 100).toFixed(1)}%</div><div class="snum">${a.games}场</div></div>`
 }
 function comboRow(c) {
-  return `<div class="itemrow"><div class="l">${(c.augment_meta || []).map(m => augChip(m.name, m.quality, m.icon)).join('')} <span class="num num-desk">${c.games}场</span></div><div class="r"><span class="winrate">${(c.wilson * 100).toFixed(1)}%</span> <span class="num num-mob">${c.games}场</span></div></div>`
+  const pct = c.est ?? c.wilson ?? c.wr
+  return `<div class="itemrow"><div class="l">${(c.augment_meta || []).map(m => augChip(m.name, m.quality, m.icon)).join('')} <span class="num num-desk">${c.games}场</span></div><div class="r"><span class="winrate">${(pct * 100).toFixed(1)}%</span> <span class="num num-mob">${c.games}场</span></div></div>`
 }
 function synergyRow(s) {
   return `<div class="itemrow"><div class="l">${augChip(s.aname, s.aquality, s.aicon)}+${augChip(s.bname, s.bquality, s.bicon)} <span class="num">${s.games}场</span></div><div class="r"><span class="winrate">${(s.wr * 100).toFixed(1)}%</span> <span class="pct">${s.lift > 0 ? '▲' : '▼'}${Math.abs(s.lift * 100).toFixed(1)}%</span></div></div>`

@@ -2,7 +2,7 @@
 stats.py —— 从 records.jsonl 计算各项胜率统计，输出 processed/stats.json。
 口径：
 - 单符文胜率：WR(R|X) = 含R的对局中胜率；用 Wilson 下界排序（置信度+样本量），并标注样本量。
-- 组合胜率：任意 3 符文子集的胜率（一局贡献 C(n,3) 个子集样本；≥20场收录，不足依次放宽到 10/5 场）；按"贝叶斯收缩+Wilson 下界"排序。
+- 组合胜率：任意 3 符文子集的胜率（一局贡献 C(n,3) 个子集样本；≥20场收录，不足依次放宽到 10/5 场）；按"贝叶斯收缩+Wilson 下界"排序，展示用收缩点估计 est。
 - 协同：WR(A&B) 相对该英雄基础胜率的增益（lift）。
 - 对位：需要 champion_tags.json（可填），算 WR(R|X, 敌方含某标签) - WR(R|X, 全部)。
 - 出装：该英雄最常用的装备组合 + 胜率。
@@ -37,6 +37,14 @@ def shrink(wins, games, prior, k=None):
     ws = wins + k * prior
     gs = games + k
     return wilson_lower(ws, gs)
+
+
+def shrink_mean(wins, games, prior, k=None):
+    """贝叶斯收缩后的点估计（后验均值）：展示用，比 Wilson 下界直观（真正好的组合会高于英雄平均）。"""
+    k = K if k is None else k
+    if games <= 0:
+        return prior
+    return (wins + k * prior) / (games + k)
 
 
 def wilson_lower(k, n):
@@ -184,6 +192,7 @@ def main():
             })
         augs_rec.sort(key=lambda x: (-x["wilson"], -x["games"]))
         # 组合（任意 3 符文子集；≥20 场收录，不足依次放宽到 10/5 场，最多 20 条）
+        # 排序用 wilson 下界（防小样本霸榜）；展示用 est 收缩点估计（直观，好组合会高于英雄平均）
         todo = []
         for combo, (cw, cg) in per_champ_combo[cid].items():
             if any(is_random_aug(x) for x in combo):
@@ -196,7 +205,9 @@ def main():
             if picked:
                 for it in picked[:20]:
                     combos.append({"augments": [str(x) for x in it["combo"]], "wins": it["cw"], "games": it["cg"],
-                                   "wr": round(it["cw"] / it["cg"], 4), "wilson": round(it["score"], 4)})
+                                   "wr": round(it["cw"] / it["cg"], 4),
+                                   "wilson": round(it["score"], 4),
+                                   "est": round(shrink_mean(it["cw"], it["cg"], base), 4)})
                 break
         # 协同
         synergy = []
