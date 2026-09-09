@@ -47,7 +47,7 @@
 import { state, AV_FALLBACK, toast } from '../../store'
 import { getJSON } from '../../api'
 
-const TITLES = { augments: '最优单个符文', combos: '最优符文组合', synergy: '搭配增益', builds: '核心出装', counters: '克制推荐' }
+const TITLES = { augments: '最优单个符文', combos: '最优符文套路', synergy: '搭配增益', builds: '核心出装', counters: '克制推荐' }
 const CAPS = {
   augments: '该英雄带这个符文胜率最高（按品质分档）',
   combos: '这几个符文一起带的胜率',

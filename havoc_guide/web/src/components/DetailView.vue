@@ -53,7 +53,7 @@ const sects = computed(() => {
   }
   if (x.combos && x.combos.length) {
     const rows = x.combos.map(c => comboRow(c, x.overall && x.overall.wr))
-    out.push({ id: 'sec-combos', key: 'combos', title: '最优符文组合', caption: '这三个符文一起带的胜率，比该英雄平均▲高/▼低', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
+    out.push({ id: 'sec-combos', key: 'combos', title: '最优符文套路', caption: '这三个符文一起带的胜率，比该英雄平均▲高/▼低', html: rowsHtml(rows, limit), hasMore: rows.length > limit })
   }
   if (x.synergy && x.synergy.length) {
     const rows = x.synergy.map(synergyRow)

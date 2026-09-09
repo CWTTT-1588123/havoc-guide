@@ -114,7 +114,7 @@ export default {
       if (x.augments_by_quality && x.augments_by_quality.length) {
         out.push({ key: 'augments', title: '最优单个符文', caption: '该英雄带这个符文胜率最高（按品质分档）', hasMore: x.augments_by_quality.some(g => g.items.length > 5) })
       }
-      if (x.combos && x.combos.length) out.push({ key: 'combos', title: '最优符文组合', caption: '这几个符文一起带的胜率', hasMore: x.combos.length > 6 })
+      if (x.combos && x.combos.length) out.push({ key: 'combos', title: '最优符文套路', caption: '这几个符文一起带的胜率', hasMore: x.combos.length > 6 })
       if (x.synergy && x.synergy.length) out.push({ key: 'synergy', title: '搭配增益', caption: '这两个符文一起带，胜率比该英雄平均▲高/▼低', hasMore: x.synergy.length > 6 })
       if (x.builds && x.builds.length) out.push({ key: 'builds', title: '核心出装', caption: '该英雄这流派常见的核心三件套', hasMore: x.builds.length > 6 })
       if (x.counters && x.counters.length) out.push({ key: 'counters', title: '克制推荐', caption: '敌方是这类阵容时，选这个符文克制（▲ 克制加成 / ▼ 反被压制）', hasMore: x.counters.length > 6 })

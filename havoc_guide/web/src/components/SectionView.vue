@@ -7,7 +7,7 @@ const cid = computed(() => state.section.cid)
 const key = computed(() => state.section.key)
 const d = ref(null)
 
-const TITLES = { augments:'最优单个符文', combos:'最优符文组合', synergy:'搭配增益', builds:'核心出装', counters:'克制推荐' }
+const TITLES = { augments:'最优单个符文', combos:'最优符文套路', synergy:'搭配增益', builds:'核心出装', counters:'克制推荐' }
 const CAPS = { augments:'该英雄带这个符文胜率最高（按品质分档）', combos:'这三个符文一起带的胜率，比该英雄平均▲高/▼低', synergy:'这两个符文一起带，胜率比该英雄平均▲高/▼低', builds:'该英雄这流派常见的核心三件套', counters:'敌方是这类阵容时，选这个符文克制（▲ 克制加成 / ▼ 反被压制）' }
 
 function esc(x) { return String(x ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])) }
