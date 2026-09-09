@@ -25,10 +25,12 @@ def ck_from(p):
     return ck, b
 
 
-creds = {
-    "C2(22:15)": r"E:\Deepseek Harness\wegame-capture\captured\REQ_GetBattleDetail_20260905_221525_967637.json",
-    "C3(22:48)": r"E:\Deepseek Harness\wegame-capture\captured\REQ_GetBattleDetail_20260905_224816_508039.json",
-}
+creds = {}
+# 自动取最新一份 REQ_GetBattleDetail 抓包（凭证来源，bfscrawl 也读 files[-1]）
+reqs = sorted(glob.glob(os.path.join(BASE, "captured", "REQ_GetBattleDetail_*.json")),
+              key=os.path.getmtime)
+if reqs:
+    creds["LATEST(%s)" % os.path.basename(reqs[-1])] = reqs[-1]
 
 ok = 0
 for name, p in creds.items():
