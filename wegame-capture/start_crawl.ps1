@@ -1,17 +1,17 @@
 ﻿# start_crawl.ps1 —— 拉起单条 BFS 爬虫线（2026-09-09 起唯一的爬虫拉起方式）
 # 由 AI 在【托管后台任务】里调用（run_in_background=true, workdir=E:\Deepseek Harness\wegame-capture）：
-#   & "E:\Deepseek Harness\wegame-capture\start_crawl.ps1" -Worker 1   # 线1 -> crawl_a1_w1.log
-#   & "E:\Deepseek Harness\wegame-capture\start_crawl.ps1" -Worker 2   # 线2 -> crawl_a1_w2.log
+#   单账号（2 线）：-Worker 1 / -Worker 2（凭证留空自动取最新）
+#   双账号（4 线，2026-09-10 起支持）：账号A 用 -Worker 1/2 -CredFile <A凭证>；账号B 用 -Worker 3/4 -CredFile <B凭证>
 # 注意：绝不要用 Start-Process / DETACHED_PROCESS 拉爬虫（沙箱回收、用户关窗也会回收 → 爬虫静默死，见 ds_brain 08）。
 param(
-    [int]$Worker = 1,          # 1 或 2（艾欧尼亚双线分片）
+    [int]$Worker = 1,          # 1~4（艾欧尼亚分片；1/2 与 3/4 建议分属两个账号，各自 2 线不超各自风控档）
     [string]$CredFile = ""     # 凭证文件名（captured\ 下相对名，如 REQ_GetBattleDetail_xxx.json）；留空=自动取最新
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location "E:\Deepseek Harness\wegame-capture"
 
-if ($Worker -ne 1 -and $Worker -ne 2) { throw "Worker 只能是 1 或 2" }
+if ($Worker -lt 1 -or $Worker -gt 4) { throw "Worker 只能是 1~4" }
 
 if (-not $CredFile) {
     $CredFile = Get-ChildItem "captured\REQ_GetBattleDetail_*.json" |
