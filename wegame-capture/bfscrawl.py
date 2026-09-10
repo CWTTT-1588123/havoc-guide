@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import re
 import time
 import base64
 
@@ -141,6 +142,34 @@ def seed_from_games(seen):
             pass
 
 
+RE_DETAIL = re.compile(r"^detail_(?:a\d+_)?(\d+)\.json$")
+
+
+def scan_seen_games():
+    """扫描 data/ 建立"已抓对局"集合：文件名即 detail_[a<区>_]<game_id>.json，优先从文件名提取（秒级），
+    仅对文件名不规范的少数文件回退解析 JSON（旧实现逐个 json.load 9万+ 文件，冷启动要 2~4 分钟）。"""
+    seen = set()
+    t0 = time.time()
+    files = glob.glob(os.path.join(OUT_DIR, "detail_*.json"))
+    fallback = 0
+    for f in files:
+        m = RE_DETAIL.match(os.path.basename(f))
+        if m:
+            seen.add(m.group(1))
+            continue
+        fallback += 1
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+            gid = (d.get("battle_detail", {}) or {}).get("game_id")
+            if gid is not None:
+                seen.add(str(gid))
+        except Exception:
+            pass
+    print("[init] seen_games=%d（%d 个文件，回退解析 %d 个，耗时 %.1fs）"
+          % (len(seen), len(files), fallback, time.time() - t0), flush=True)
+    return seen
+
+
 def main():
     max_games = int(os.environ.get("MAX_GAMES", "2000"))             # 本次新增对局预算
     max_players = int(os.environ.get("MAX_PLAYERS", "3000"))         # 本次扩展玩家上限
@@ -157,13 +186,7 @@ def main():
     seen_players.add(OWNER_ID)  # 永远含自己
     queue = list(seen_players)
 
-    seen_games = set()
-    for f in glob.glob(os.path.join(OUT_DIR, "detail_*.json")):
-        try:
-            d = json.load(open(f, encoding="utf-8"))
-            seen_games.add(d.get("battle_detail", {}).get("game_id"))
-        except Exception:
-            pass
+    seen_games = scan_seen_games()
 
     new_games = 0
     processed = 0
