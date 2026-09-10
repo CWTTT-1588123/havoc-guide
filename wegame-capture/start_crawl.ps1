@@ -1,4 +1,4 @@
-# start_crawl.ps1 —— 拉起单条 BFS 爬虫线（2026-09-09 起唯一的爬虫拉起方式）
+﻿# start_crawl.ps1 —— 拉起单条 BFS 爬虫线（2026-09-09 起唯一的爬虫拉起方式）
 # 由 AI 在【托管后台任务】里调用（run_in_background=true, workdir=E:\Deepseek Harness\wegame-capture）：
 #   & "E:\Deepseek Harness\wegame-capture\start_crawl.ps1" -Worker 1   # 线1 -> crawl_a1_w1.log
 #   & "E:\Deepseek Harness\wegame-capture\start_crawl.ps1" -Worker 2   # 线2 -> crawl_a1_w2.log
