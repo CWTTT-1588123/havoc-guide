@@ -65,6 +65,7 @@ FROM_SRC = AUTHBODY.get("from_src", "lol_helper")
 
 PLAYERS_FILE = _state_file("players_seen")
 HIDDEN_FILE = _state_file("hidden")
+VISITED_FILE = _state_file("visited")   # 「已抓过」的玩家（走过页数/确认无更多/隐藏），下轮跳过
 
 _client = creq.Session(impersonate=IMPERSONATE)
 _client.headers.update({
@@ -108,6 +109,24 @@ def load_players():
         with open(PLAYERS_FILE, encoding="utf-8-sig") as f:
             return set(json.load(f))
     return set()
+
+
+def load_visited():
+    """已抓过的玩家集合（持久化）。没有就返回空集（=全部当新玩家）。"""
+    if os.path.exists(VISITED_FILE):
+        try:
+            with open(VISITED_FILE, encoding="utf-8-sig") as f:
+                return set(json.load(f))
+        except Exception:
+            return set()
+    return set()
+
+
+def save_visited(visited):
+    tmp = VISITED_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(list(visited), f, ensure_ascii=False)
+    os.replace(tmp, VISITED_FILE)
 
 
 def record_hidden(pid, code):
@@ -184,7 +203,16 @@ def main():
     if SEED_FROM_GAMES:
         seed_from_games(seen_players)   # 新大区(AREA/SEED_FROM_GAMES=0)不混入其他大区的玩家种子
     seen_players.add(OWNER_ID)  # 永远含自己
-    queue = list(seen_players)
+    # 队列优先级（2026-09-10 优化）：只排"从未抓过"的玩家——已抓过的玩家 30 页历史里绝大多数是重复对局，
+    # 重复访问等于白烧请求配额（配额=凭证寿命/滑块风控）。新发现的玩家仍按 LIFO 优先插队处理。
+    visited = load_visited()
+    fresh = [p for p in seen_players if p not in visited]
+    if fresh:
+        queue = fresh
+        print("[init] 队列=未抓过的玩家 %d 个（已抓过、本轮跳过 %d 个）" % (len(fresh), len(seen_players) - len(fresh)), flush=True)
+    else:
+        queue = list(seen_players)
+        print("[warn] 已知玩家全部抓过一遍了，本轮回退为全量重走 %d 个" % len(queue), flush=True)
 
     seen_games = scan_seen_games()
 
@@ -193,6 +221,7 @@ def main():
     while queue and new_games < max_games and processed < max_players:
         pid = queue.pop()
         processed += 1
+        walked = False     # 是否把该玩家的历史走完了（走完/确认无更多/隐藏 → 记入 visited，下轮跳过）
         for page in range(max_pages):
             offset = page * count
             try:
@@ -203,16 +232,22 @@ def main():
             code = bl.get("result", {}).get("error_code")
             if code == 8025009:
                 print("[AUTH-EXPIRED] 登录凭证过期，停止本次抓取（需重新抓包刷新 cookie）| player=%s" % pid, flush=True)
+                save_players(seen_players)
+                save_visited(visited)
                 return
             if code == 8000022:
                 print("[VERIFY-NEEDED] 触发滑块验证，停止本次抓取（需在客户端过滑块后重跑）| player=%s" % pid, flush=True)
+                save_players(seen_players)
+                save_visited(visited)
                 return
             if code != 0:
                 record_hidden(pid, code)
                 print("[hidden] player=%s error_code=%s" % (pid, code), flush=True)
+                walked = True      # 隐藏/查不到：重试无意义，视为已处理
                 break
             battles = bl.get("battles") or []
             if not battles:
+                walked = True      # 没有更多历史页了
                 break
             for b in battles:
                 if b.get("game_queue_id") != 2400:
@@ -250,12 +285,19 @@ def main():
             if new_games >= max_games:
                 break
             time.sleep(0.1)
-        if processed % 50 == 0:
+        else:
+            walked = True          # 走满 max_pages 页（for 未被 break）
+        if walked and new_games < max_games:
+            visited.add(pid)
+        if processed % 25 == 0:
             save_players(seen_players)
+            save_visited(visited)
         if new_games >= max_games:
             break
     save_players(seen_players)
-    print("[done] 新增对局=%d 处理玩家=%d 累计seen玩家=%d" % (new_games, processed, len(seen_players)), flush=True)
+    save_visited(visited)
+    print("[done] 新增对局=%d 处理玩家=%d 累计seen玩家=%d 已抓过玩家=%d"
+          % (new_games, processed, len(seen_players), len(visited)), flush=True)
 
 
 if __name__ == "__main__":
