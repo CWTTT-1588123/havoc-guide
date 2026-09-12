@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { state, loadAuth, openLogin, goHome, getJSON, applyPrefs, toast } from './store'
+import { state, loadAuth, refreshMe, openLogin, goHome, getJSON, applyPrefs, toast } from './store'
 import LoginModal from './components/LoginModal.vue'
 import AvatarMenu from './components/AvatarMenu.vue'
 import ProfileView from './components/ProfileView.vue'
@@ -40,7 +40,7 @@ const showHeader = computed(() => state.view !== 'profile' && state.view !== 'ad
 let suppressPush = false
 
 // —— 符文效果说明：电脑端=鼠标悬浮提示（原样），手机端=点击居中弹窗（点外部关闭）——
-let tipEl, ttEl, __augdesc = null, hoverOK = false
+let tipEl, ttEl, __augdesc = null, hoverOK = false, modalOpen = false
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])) }
 async function ensureDesc() {
   if (__augdesc) return
@@ -49,6 +49,7 @@ async function ensureDesc() {
 }
 let tipTimer
 function showTip(el) {
+  if (modalOpen) return          // 完整卡片弹窗打开时不再弹悬浮提示，避免重叠
   clearTimeout(tipTimer)
   const name = el.getAttribute('data-name') || ''
   const d = (__augdesc && __augdesc[name]) || ''
@@ -75,8 +76,10 @@ function showAugModal(el) {
     `${icon}<div class="tm-name">${esc(name)}${q ? `<span class="q ${esc(q)}">${esc(q)}</span>` : ''}</div>` +
     `<div class="tm-desc">${d ? esc(d) : '（暂无描述）'}</div><div class="tm-hint">点击空白处关闭</div>`
   ttEl.style.display = 'flex'
+  modalOpen = true
+  if (tipEl) tipEl.style.display = 'none'
 }
-function hideAugModal() { ttEl.style.display = 'none' }
+function hideAugModal() { ttEl.style.display = 'none'; modalOpen = false }
 
 function syncHeaderH() {
   const h = document.querySelector('header')
@@ -99,6 +102,7 @@ function parseHash() {
 
 onMounted(() => {
   loadAuth()
+  refreshMe()   // 向服务器同步最新用户信息（头像/昵称等）
   applyPrefs()
   syncHeaderH()
   window.addEventListener('resize', syncHeaderH)
@@ -116,8 +120,16 @@ onMounted(() => {
   ttEl.addEventListener('click', e => { if (!(e.target instanceof Element) || !e.target.closest('.ttcard')) hideAugModal() })
   document.addEventListener('keydown', e => { if (e.key === 'Escape') hideAugModal() })
   document.addEventListener('click', e => {
-    if (hoverOK) return
     const t = e.target
+    // 「所有符文」页的符文卡：电脑端与手机端都弹完整卡片（描述超长时卡片内是省略的，点开看全文）
+    const cardEl = (t instanceof Element) && t.closest('.augcard[data-name]')
+    if (cardEl) {
+      e.stopPropagation()
+      if (state.loginPop) state.loginPop = false
+      showAugModal(cardEl)
+      return
+    }
+    if (hoverOK) return
     const el = (t instanceof Element) && t.closest('[data-name]')
     if (el) {
       e.stopPropagation()   // 点符文卡不再触发所在行/卡片的跳转

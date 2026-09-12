@@ -397,12 +397,15 @@
   .hasicon .q.白银 { color:#cdd6e4; border-color:#3a4252; background:#2b3240; }
   .hasicon .q.黄金 { color:var(--gold); border-color:#6a5a20; background:#3a3018; }
   .hasicon .q.棱彩 { color:#d9a8ff; border-color:#6a3a8a; background:#3a2650; }
-  /* 所有符文：六列网格 + 单符文卡样式（大图标、等高、深色渐变） */
+  /* 所有符文：六列网格 + 单符文卡样式（大图标、深色渐变）
+     等高自适应（2026-09-13 改）：卡片不再写死高度，改为「图标固定 + 名称区 2 行 + 描述区 6 行」三段固定结构
+     → 所有卡片天然同高、图标对齐、文字自然下排；描述超 6 行自动省略号（点卡片看完整说明），数据更新无需改样式 */
   .auggrid { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
-  .augcard { display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 12px; background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(100,120,200,.35); border-radius:16px; text-align:center; transition:.15s; height:330px; justify-content:flex-start; box-shadow:0 4px 14px rgba(30,45,95,.25); }
-  .augcard:hover { transform:translateY(-2px); }
-  .augcard .sname { color:#f2f5fc; }
-  .augcard .sdesc { font-size:20px; color:#c3cde6; line-height:1.45; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+  .augcard-wrap { display:flex; }
+  .augcard { display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 12px; background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(100,120,200,.35); border-radius:16px; text-align:center; transition:.15s; width:100%; justify-content:flex-start; cursor:pointer; box-shadow:0 4px 14px rgba(30,45,95,.25); }
+  .augcard:hover { transform:translateY(-2px); border-color:rgba(74,168,255,.45); }
+  .augcard .sname { color:#f2f5fc; line-height:1.3; min-height:2.6em; align-content:center; }
+  .augcard .sdesc { font-size:20px; color:#c3cde6; line-height:1.45; min-height:8.7em; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
   @media (max-width:1250px){ .auggrid { grid-template-columns:repeat(4,1fr); } }
   @media (max-width:900px){ .auggrid { grid-template-columns:repeat(3,1fr); } }
   @media (max-width:600px){ .auggrid { grid-template-columns:repeat(2,1fr); } }
@@ -603,7 +606,7 @@
     .site-foot { font-size:15px; padding:14px 12px; }
     .qhead { height:56px; top:calc(var(--headerh,0px) + var(--i) * 56px); }
     .qttl { font-size:20px; }
-    .augcard { height:auto; min-height:200px; }
+    .augcard { min-height:0; }
     .augcard .sdesc { font-size:15px; }
     .com-in { font-size:16px; }
     .bubble, .com-text { font-size:16px; }

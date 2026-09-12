@@ -22,7 +22,7 @@ onMounted(async () => { groups.value = await getJSON('/api/augments_all') })
   <div class="detail">
     <div class="dhead">
       <h2>所有符文</h2>
-      <div class="sub">点击品质标题展开该品质全部符文 · 共 {{ total }} 个</div>
+      <div class="sub">点击品质标题展开该品质全部符文 · 共 {{ total }} 个 · <b>点击任意符文卡片查看完整效果说明</b></div>
     </div>
     <div class="qlist">
       <div v-for="(g, i) in qualityItems" :key="g.quality" class="qblock">
