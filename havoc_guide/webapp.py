@@ -1292,6 +1292,14 @@ async def api_prefs_set(request: Request):
 
 
 # ============ 官方公告（收信箱，需登录）============
+def _ver_key(v):
+    """版本号排序键：'v1.3.10' → (1,3,10,0)，非标准版本回退 (0,0,0,0)。
+    收信箱/公告管理都按版本号倒序（不能按数据库 id——最早的公告 id 小但版本号不一定小）。"""
+    nums = [int(x) for x in re.findall(r"\d+", str(v or ""))][:4]
+    nums += [0] * (4 - len(nums))
+    return tuple(nums)
+
+
 @app.get("/api/announcements")
 async def api_announcements(request: Request):
     u = _auth_user(request)
@@ -1300,7 +1308,7 @@ async def api_announcements(request: Request):
     read = set(u.get("readAnns") or [])
     items = [{"id": a["id"], "ver": a.get("ver", ""), "title": a["title"], "content": a["content"],
               "created": a["created"], "read": a["id"] in read}
-             for a in sorted(ANNS, key=lambda x: -(x.get("id") or 0))]
+             for a in sorted(ANNS, key=lambda x: (_ver_key(x.get("ver")), x.get("id") or 0), reverse=True)]
     return {"ok": True, "announcements": items,
             "unread": sum(1 for x in items if not x["read"])}
 
@@ -1468,7 +1476,7 @@ async def api_admin_announcements(request: Request):
     u = _admin_required(request)
     if not u:
         return JSONResponse({"ok": False, "error": "需要管理员权限"}, status_code=403)
-    return {"ok": True, "announcements": sorted(ANNS, key=lambda x: -(x.get("id") or 0))}
+    return {"ok": True, "announcements": sorted(ANNS, key=lambda x: (_ver_key(x.get("ver")), x.get("id") or 0), reverse=True)}
 
 
 @app.post("/api/admin/announcement")
