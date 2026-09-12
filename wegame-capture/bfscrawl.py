@@ -65,7 +65,9 @@ FROM_SRC = AUTHBODY.get("from_src", "lol_helper")
 
 PLAYERS_FILE = _state_file("players_seen")
 HIDDEN_FILE = _state_file("hidden")
-VISITED_FILE = _state_file("visited")   # 「已抓过」的玩家（走过页数/确认无更多/隐藏），下轮跳过
+# 「已抓过」玩家按【补丁】隔离（2026-09-13）：换了补丁必须重新走一遍玩家近期历史才能收到新版本对局，
+# 否则上版本抓过的玩家会被永久跳过 → 新补丁数据永远收不到。
+VISITED_FILE = _state_file("visited_p" + PATCH_VERSION.replace(".", ""))
 
 _client = creq.Session(impersonate=IMPERSONATE)
 _client.headers.update({
