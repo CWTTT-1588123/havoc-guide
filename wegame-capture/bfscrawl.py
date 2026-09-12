@@ -25,6 +25,9 @@ REQ_FILE = os.environ.get("REQ_FILE", "")
 AREA_ENV = os.environ.get("AREA", "")
 SEED_FROM_GAMES = os.environ.get("SEED_FROM_GAMES", "1") != "0"
 WORKER = os.environ.get("WORKER", "")   # 每区多进程分片：状态文件名加 _w<WORKER> 后缀
+# 本补丁起始时间戳（毫秒，0=不启用）。列表按时间倒序 → 翻到"最新对局都早于该时间"的页就停，
+# 避免为新补丁爬取时把请求浪费在旧版本对局上（2026-09-13 换 16.18 时加）。
+PATCH_START_MS = int(os.environ.get("PATCH_START_MS", "0") or 0)
 
 
 def _state_file(name):
@@ -251,6 +254,15 @@ def main():
             if not battles:
                 walked = True      # 没有更多历史页了
                 break
+            # 换补丁优化：本页最新对局都早于本补丁起点 → 本页及更深页都不可能有本补丁对局，停止翻页
+            if PATCH_START_MS:
+                try:
+                    newest = max(int(b.get("game_start_time") or 0) for b in battles)
+                except Exception:
+                    newest = 0
+                if newest and newest < PATCH_START_MS:
+                    walked = True   # 该玩家在本补丁下已无更多可抓
+                    break
             for b in battles:
                 if b.get("game_queue_id") != 2400:
                     continue

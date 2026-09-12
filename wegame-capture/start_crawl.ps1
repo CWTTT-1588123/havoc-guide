@@ -7,7 +7,8 @@
 param(
     [int]$Worker = 1,          # 1~4（艾欧尼亚分片；1/2 与 3/4 建议分属两个账号，各自 2 线不超各自风控档）
     [string]$CredFile = "",    # 凭证文件名（captured\ 下相对名，如 REQ_GetBattleDetail_xxx.json）；留空=自动取最新
-    [string]$Patch = "16.18"   # 只收该补丁的对局（2026-09-13 起服务端为 16.18）
+    [string]$Patch = "16.18",  # 只收该补丁的对局（2026-09-13 起服务端为 16.18）
+    [string]$PatchStartMs = "1789056000000"   # 补丁起点(ms)=2026-09-11 00:00 安全下界；补旧补丁数据传 0 关闭
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +32,9 @@ $env:MAX_GAMES = "50000"
 $env:MAX_PLAYERS = "100000"
 $env:AREA = "1"
 $env:WORKER = "$Worker"
+# 补丁起点（毫秒）：翻页遇到"整页都早于该时间"就停 → 不为旧版本对局浪费请求。
+# 16.18 实测起点 2026-09-11 21:50；这里取 09-11 00:00 作安全下界。要补旧补丁数据就传 -PatchStart 0。
+$env:PATCH_START_MS = "$PatchStartMs"
 
-Write-Output ("[launcher] worker={0} patch={1} auth={2} -> crawl_a1_w{0}.log" -f $Worker, $Patch, $CredFile)
+Write-Output ("[launcher] worker={0} patch={1} patch_start={2} auth={3} -> crawl_a1_w{0}.log" -f $Worker, $Patch, $PatchStartMs, $CredFile)
 & ".\.venv\Scripts\python.exe" ".\bfscrawl.py" *> "crawl_a1_w$Worker.log"
