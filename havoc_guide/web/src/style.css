@@ -401,16 +401,16 @@
      卡片定尺（2026-09-13）：尺寸写死，所有卡片**绝对一样大**——
        图标 104px + 名称区 2 行 + 描述区 6 行（三段都是固定高度）
      文字超出即省略号，点卡片弹窗看完整说明。想调卡片高矮只改下面两个行数（名称 2 / 描述 6） */
-  .auggrid { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
-  .augcard-wrap { display:flex; }
-  .augcard { display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 12px; background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(100,120,200,.35); border-radius:16px; text-align:center; transition:.15s; width:100%; justify-content:flex-start; cursor:pointer; box-shadow:0 4px 14px rgba(30,45,95,.25); }
+  .auggrid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; }
+  .augcard-wrap { display:flex; min-width:0; }
+  .augcard { display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 12px; background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(100,120,200,.35); border-radius:16px; text-align:center; transition:.15s; width:100%; justify-content:flex-start; cursor:pointer; overflow:hidden; box-shadow:0 4px 14px rgba(30,45,95,.25); }
   .augcard:hover { transform:translateY(-2px); border-color:rgba(74,168,255,.45); }
-  .augcard .sname { color:#f2f5fc; line-height:1.3; height:2.6em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .augcard .sdesc { font-size:20px; color:#c3cde6; line-height:1.45; height:8.7em; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
-  @media (max-width:1250px){ .auggrid { grid-template-columns:repeat(4,1fr); } }
-  @media (max-width:900px){ .auggrid { grid-template-columns:repeat(3,1fr); } }
-  @media (max-width:600px){ .auggrid { grid-template-columns:repeat(2,1fr); } }
-  @media (max-width:420px){ .auggrid { grid-template-columns:1fr; } }
+  .augcard .sname { color:#f2f5fc; line-height:1.3; height:2.6em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+  .augcard .sdesc { font-size:20px; color:#c3cde6; line-height:1.45; height:8.7em; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+  @media (max-width:1250px){ .auggrid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+  @media (max-width:900px){ .auggrid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media (max-width:600px){ .auggrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:420px){ .auggrid { grid-template-columns:minmax(0,1fr); } }
   /* 所有符文：品质标题依次吸顶跟随（共享一个贯穿全页的 .qlist 作为包含块），叠放排列 */
   .qhead { position:sticky; top:calc(var(--headerh) + var(--i)*72px); z-index:calc(6 + var(--i)); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; height:72px; cursor:pointer; background:var(--glass); border:1px solid rgba(120,140,200,.28); border-radius:0; transition:.15s; margin-bottom:0; }
   .qhead:hover { border-color:rgba(74,168,255,.4); }
