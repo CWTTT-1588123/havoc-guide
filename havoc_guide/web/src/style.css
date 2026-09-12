@@ -398,14 +398,15 @@
   .hasicon .q.黄金 { color:var(--gold); border-color:#6a5a20; background:#3a3018; }
   .hasicon .q.棱彩 { color:#d9a8ff; border-color:#6a3a8a; background:#3a2650; }
   /* 所有符文：六列网格 + 单符文卡样式（大图标、深色渐变）
-     等高自适应（2026-09-13 改）：卡片不再写死高度，改为「图标固定 + 名称区 2 行 + 描述区 6 行」三段固定结构
-     → 所有卡片天然同高、图标对齐、文字自然下排；描述超 6 行自动省略号（点卡片看完整说明），数据更新无需改样式 */
+     卡片定尺（2026-09-13）：尺寸写死，所有卡片**绝对一样大**——
+       图标 104px + 名称区 2 行 + 描述区 6 行（三段都是固定高度）
+     文字超出即省略号，点卡片弹窗看完整说明。想调卡片高矮只改下面两个行数（名称 2 / 描述 6） */
   .auggrid { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
   .augcard-wrap { display:flex; }
   .augcard { display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 12px; background:linear-gradient(160deg,#161d33,#10142a); border:1px solid rgba(100,120,200,.35); border-radius:16px; text-align:center; transition:.15s; width:100%; justify-content:flex-start; cursor:pointer; box-shadow:0 4px 14px rgba(30,45,95,.25); }
   .augcard:hover { transform:translateY(-2px); border-color:rgba(74,168,255,.45); }
-  .augcard .sname { color:#f2f5fc; line-height:1.3; min-height:2.6em; align-content:center; }
-  .augcard .sdesc { font-size:20px; color:#c3cde6; line-height:1.45; min-height:8.7em; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+  .augcard .sname { color:#f2f5fc; line-height:1.3; height:2.6em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .augcard .sdesc { font-size:20px; color:#c3cde6; line-height:1.45; height:8.7em; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
   @media (max-width:1250px){ .auggrid { grid-template-columns:repeat(4,1fr); } }
   @media (max-width:900px){ .auggrid { grid-template-columns:repeat(3,1fr); } }
   @media (max-width:600px){ .auggrid { grid-template-columns:repeat(2,1fr); } }
