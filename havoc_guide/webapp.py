@@ -103,7 +103,7 @@ for _n, _o in ITEM_NICKS.items():
     NAME_ITEM_NICKS.setdefault(_o, []).append(_n)
 DRAGON_VER = os.environ.get("DRAGON_VER", _dragon_version())
 PATCH_VERSION = os.environ.get("PATCH_VERSION", "16.16")  # 当前LOL补丁版本，用于网站名标注
-SITE_VERSION = "v1.3.2"  # 站点功能版本（git tag 同步，/api/site 返回）
+SITE_VERSION = "v1.3.3"  # 站点功能版本（git tag 同步，/api/site 返回）
 
 app = FastAPI(title="海克斯大乱斗 攻略站")
 # 静态资源（桌面宠物/头像等）：把图片放进 static/ 即可经 /static/... 访问
