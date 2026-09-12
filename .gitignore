@@ -67,3 +67,4 @@ wegame-capture/players_seen_a*.json
 wegame-capture/hidden_a*.json
 wegame-capture/hidden.json
 wegame-capture/cooldown_test.txt
+wegame-capture/visited*.json
